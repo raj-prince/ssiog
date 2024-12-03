@@ -15,6 +15,6 @@
 terraform {
   backend "gcs" {
     bucket = "princer-test-terraform"
-    prefix = "synthetic-scale-io/princer/training/us-west1"
+    prefix = "ssiog/princer/training/test_run"
   }
 }

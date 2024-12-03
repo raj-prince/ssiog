@@ -24,17 +24,17 @@ variable "location" {
 
 variable "cluster_name" {
   type = string
-  default = "princer-synthetic-scale-io-cluster"
+  default = "princer-ssiog"
 }
 
 variable "data_bucket_name" {
   type = string
-  default = "princer-synthetic-scale-io-input-bucket"
+  default = "princer-ssiog-data-bkt"
 }
 
 variable "metrics_bucket_name" {
   type = string
-  default = "princer-synthetic-scale-io-metrics-bucket"
+  default = "princer-ssiog-metrics-bkt"
 }
 
 variable "parallelism" {
@@ -48,7 +48,7 @@ variable "epochs" {
 }
 
 variable "labels" {
-  default     = []
+  default     = ["0_testing"]
   type        = list(string)
   description = "Annotations for the workload."
 }

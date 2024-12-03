@@ -59,14 +59,20 @@ resource "random_id" "uniq" {
   byte_length = 8
 }
 
+## We need a GCP service account that will serve as the cluster's SA.
+#module "sa" {
+#  source  = "../cluster/service-account"
+#  project = var.project
+#}
+
 locals {
-  k8s_sa_name = "princer-synthetic-scale-io-${random_id.uniq.hex}"
+  k8s_sa_name = "princer-ssiog-ksa-${random_id.uniq.hex}"
 
   # The full name of the k8s service account when used in GCP IAM bindings.
   k8s_sa_full = "//iam.googleapis.com/projects/${data.google_project.project.number}/locations/global/workloadIdentityPools/${data.google_project.project.project_id}.svc.id.goog/subject/ns/default/sa/${local.k8s_sa_name}"
 }
 
-resource "kubernetes_service_account" "sa" {
+resource "kubernetes_service_account" "ksa" {
   metadata {
     name = local.k8s_sa_name
   }
@@ -76,33 +82,22 @@ resource "google_storage_bucket_iam_member" "grant-ksa-permissions-on-metrics-bu
   bucket     = var.metrics_bucket_name
   role       = "roles/storage.objectUser"
   member     = "principal:${local.k8s_sa_full}"
-  depends_on = [kubernetes_service_account.sa]
+  depends_on = [kubernetes_service_account.ksa]
 }
 
 module "gcsfuse-data" {
-  source      = "../../../../modules/gcsfuse-volume"
+  source      = "../modules/gcsfuse-volume"
   bucket_name = var.data_bucket_name
   k8s_sa_full = local.k8s_sa_full
 
-  depends_on = [kubernetes_service_account.sa]
+  depends_on = [kubernetes_service_account.ksa]
 }
 
-#resource "google_artifact_registry_repository" "my_repo" {
-#  location      = "us"
-#  repository_id = "synthetic-scale-io"
-#  format        = "DOCKER"
-#}
-
 # Find the latest SHA of the image, this forces a pull if the image changes.
-#data "google_artifact_registry_docker_image" "image" {
-#  location      = "us"
-#  repository_id = "synthetic-scale-io"
-#  image_name    = "training:latest"
-#}
-
-
-module "git-labels" {
-  source = "../../../../modules/git-labels"
+data "google_artifact_registry_docker_image" "image" {
+  location      = "us-west1"
+  repository_id = "ssiog"
+  image_name    = "initial_iog:0.0.0"
 }
 
 locals {
@@ -120,9 +115,9 @@ locals {
 
 # Generate the data loader benchmark definition.
 resource "local_file" "training-microbenchmark" {
-  filename = "run-training-microbenchmark.yaml"
-  content = templatefile("./templates/run-training-microbenchmark.tfpl.yaml", {
-    image               = "test"
+  filename = "run-ssiog.yaml"
+  content = templatefile("./templates/run-ssiog.tfpl.yaml", {
+    image               = data.google_artifact_registry_docker_image.image.self_link
     prefixes            = local.prefixes
     k8s_sa_name         = local.k8s_sa_name,
     pvc_name            = module.gcsfuse-data.pvc-name
@@ -132,6 +127,6 @@ resource "local_file" "training-microbenchmark" {
     background_threads  = local.background_threads,
     object_count_limit  = local.object_count_limit,
     memory              = local.memory,
-    labels              = join(" ", concat(module.git-labels.labels, var.labels)),
+    labels              = join(" ", var.labels),
   })
 }
