@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+  annotations:
+    gke-gcsfuse/volumes: "true"
+spec:
+  containers:
+  - image: busybox
+    name: busybox
+    command: ["sleep"]
+    args: ["infinity"]
+    volumeMounts:
+    - name: mnt-inputs
+      mountPath: /data
+      readOnly: false
+  serviceAccountName: princer-ssiog-ksa-e2892743606541ae
+  volumes:
+  - name: mnt-inputs
+    persistentVolumeClaim:
+      claimName: data-bucket-pvc-48f309ac976c2a2c

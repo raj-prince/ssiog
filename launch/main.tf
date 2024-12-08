@@ -59,12 +59,6 @@ resource "random_id" "uniq" {
   byte_length = 8
 }
 
-## We need a GCP service account that will serve as the cluster's SA.
-#module "sa" {
-#  source  = "../cluster/service-account"
-#  project = var.project
-#}
-
 locals {
   k8s_sa_name = "princer-ssiog-ksa-${random_id.uniq.hex}"
 
@@ -96,14 +90,14 @@ module "gcsfuse-data" {
 # Find the latest SHA of the image, this forces a pull if the image changes.
 data "google_artifact_registry_docker_image" "image" {
   location      = "us-west1"
-  repository_id = "ssiog"
-  image_name    = "initial_iog:0.0.0"
+  repository_id = "ssiog-training"
+  image_name    = var.image_name
 }
 
 locals {
   parallelism        = var.parallelism
   epochs             = var.epochs
-  prefixes           = "/mnt/gcsfuse-inputs"  # gs://${var.data_bucket_name}"
+  prefixes           = "/mnt/benchmark-inputs"  # gs://${var.data_bucket_name}"
   background_threads = 8
   # This is large enough to make the L-SSD cache irrelevant
   # object_count_limit = 1024

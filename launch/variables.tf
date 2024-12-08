@@ -52,3 +52,9 @@ variable "labels" {
   type        = list(string)
   description = "Annotations for the workload."
 }
+
+variable "image_name" {
+  default = "v0.0.2"
+  type = string
+  description = "ssiog benchmark image name"
+}

@@ -1,0 +1,52 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: test-jobset
+  annotations:
+    alpha.jobset.sigs.k8s.io/exclusive-topology: cloud.google.com/gke-nodepool
+spec:
+  failurePolicy:
+    maxRestarts: 0
+  replicatedJobs:
+  - name: main
+    replicas: 1
+    template:
+      spec:
+        parallelism: 1 # Should be smaller than the number of VMs
+        completions: 1 # Same as the above.
+        backoffLimit: 0   # When any pod fails, the job is failed
+        template:
+          metadata:
+            labels:
+              tessellations.google.com/workload: training-microbenchmark
+            annotations:
+              gke-gcsfuse/volumes: "true"
+              gke-gcsfuse/cpu-limit: "0"
+              gke-gcsfuse/memory-limit: "0"
+              gke-gcsfuse/ephemeral-storage-limit: "0"
+
+          spec:
+            containers:
+            - name: benchmark
+              image: busybox
+              command: [ "sleep" ]
+              args: [ "infinity" ]
+              volumeMounts:
+              - mountPath: /mnt/benchmark-output
+                name: gcsfuse-outputs
+                readOnly: false
+            serviceAccountName: princer-ssiog-ksa-e2892743606541ae
+            volumes:
+            - name: gcsfuse-outputs
+              csi:
+                driver: gcsfuse.csi.storage.gke.io
+                volumeAttributes:
+                  bucketName: princer-ssiog-metrics-bkt
+
+
+
+#kubectl delete -f https://github.com/kubernetes-sigs/jobset/releases/download/v0.7.1/manifests.yaml
+#kubectl apply --server-side -f https://github.com/kubernetes-sigs/jobset/releases/download/v0.7.1/manifests.yaml
+#
+#kubectl delete -f https://github.com/kubernetes-sigs/jobset/releases/download/v0.5.2/manifests.yaml
+#kubectl apply --server-side -f https://github.com/kubernetes-sigs/jobset/releases/download/v0.5.2/manifests.yaml

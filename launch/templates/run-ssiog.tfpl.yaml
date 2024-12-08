@@ -15,9 +15,7 @@
 apiVersion: jobset.x-k8s.io/v1alpha2
 kind: JobSet
 metadata:
-  generateName: training-microbenchmark-
-  labels:
-    tessellations.google.com/workload: training-microbenchmark
+  generateName: ssiog-training-
   annotations:
     alpha.jobset.sigs.k8s.io/exclusive-topology: cloud.google.com/gke-nodepool # 1:1 job replica to node pool assignment
 spec:
@@ -33,8 +31,6 @@ spec:
           backoffLimit: 0   # When any pod fails, the job is failed
           template:
             metadata:
-              labels:
-                tessellations.google.com/workload: training-microbenchmark
               # Required for GCSFuse.
               # For other storage solutions, please modify this section.
               annotations:
@@ -42,13 +38,11 @@ spec:
                 gke-gcsfuse/cpu-limit: "0"
                 gke-gcsfuse/memory-limit: "0"
                 gke-gcsfuse/ephemeral-storage-limit: "0"
-
             spec:
               # The main entry point. Use the same image as the benchmark.
               containers:
-              - name: benchmark
+              - name: ssiog-benchmark
                 image: ${image}
-
                 env:
                 - name: REPLICATED_JOB_NAME
                   valueFrom:
@@ -139,7 +133,6 @@ spec:
               # Set up k8s SA to access the metrics bucket: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/cloud-storage-fuse-csi-driver#authentication.
               # For GCSFuse, also set up access to the dataset bucket.
               serviceAccountName: ${k8s_sa_name}
-
               volumes:
               - name: gcsfuse-outputs
                 csi:

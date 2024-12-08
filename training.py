@@ -59,8 +59,6 @@ def main():
         world_size=args.group_size,
     )
 
-    print("testing")
-
     sources = configure_object_sources(args)
 
     print(
