@@ -26,6 +26,7 @@ import sys
 import threading
 import time
 from typing import Iterable
+import logging
 
 import gcsfs
 import torch.distributed as td
@@ -47,6 +48,20 @@ def main():
     """Main entry point."""
     args = parse_args()
 
+    # Create a logger instance
+    logger = logging.getLogger("ssiog_benchmark")
+    logger.setLevel(logging.DEBUG)
+
+    if args.log_file != "":
+        # Create a file handler
+        handler = logging.FileHandler(args.log_file)
+    else:
+        handler = logging.StreamHandler()
+    
+    formatter = logging.Formatter('%(created)f,%(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
     print(
         f"# Starting process {args.group_member_id}/{args.group_size}",
         file=sys.stderr,
@@ -61,20 +76,24 @@ def main():
 
     sources = configure_object_sources(args)
 
-    print(
-        "epoch,step,duration_ns,batch_size,start,read_order"
-        + ",filesystem_name"
-        + ",arg_object_count_limit"
-        + ",arg_epochs"
-        + ",arg_sample_size"
-        + ",arg_batch_size"
-        + ",arg_read_order"
-        + ",arg_background_queue_maxsize"
-        + ",arg_background_threads"
-        + ",arg_group_member_id"
-        + ",arg_group_size"
-        + ",labels"
-    )
+    if args.log_steps:
+        print(
+            "epoch,step,duration_ns,batch_size,start,read_order"
+            + ",filesystem_name"
+            + ",arg_object_count_limit"
+            + ",arg_epochs"
+            + ",arg_sample_size"
+            + ",arg_batch_size"
+            + ",arg_read_order"
+            + ",arg_background_queue_maxsize"
+            + ",arg_background_threads"
+            + ",arg_group_member_id"
+            + ",arg_group_size"
+            + ",labels"
+        )
+    
+    if args.log_sample_latency:
+        logger.debug("epoch,object_name,offset,duration_ms")
 
     for epoch in range(args.epochs):
         print(
@@ -115,8 +134,12 @@ def main():
             ]
         )
         for summary in Epoch(reader, epoch_objects, filesystem, samples, args):
-            print(f"{epoch},{summary},{annotations}", flush=True)
-
+            if args.log_sample_latency:
+                logger.debug(f"{epoch},{summary}")
+            
+            if args.log_steps:
+                print(f"{epoch},{summary},{annotations}", flush=True)
+        
 
 def Epoch(
     reader: callable,
@@ -154,12 +177,15 @@ def Epoch(
             running -= 1
             continue
         q.task_done()
+        if args.log_sample_latency:
+            yield f"{item[0]}, {item[1]}, {item[2]}"
         batch_samples += 1
         remaining -= args.batch_size
         if batch_samples < args.batch_size:
             continue
         duration_ns = time.monotonic_ns() - step_start
-        yield f"{step},{duration_ns},{batch_samples},{start}"
+        if args.log_steps:
+            yield f"{step},{duration_ns},{batch_samples},{start}"
         td.barrier()
         start = datetime.datetime.now(datetime.timezone.utc).isoformat(sep="T")
         step_start = time.monotonic_ns()
@@ -211,10 +237,12 @@ def sequential_reader(
         with filesystem.open_input_stream(name) as f:
             offset = 0
             while offset < max_offset:
+                start_time = time.monotonic_ns()
                 chunk = f.read(sample_size)
+                elapsed_time = time.monotonic_ns() - start_time
                 if not chunk:
                     break
-                yield (offset, chunk)
+                yield (name, offset, elapsed_time)
                 offset += len(chunk)
 
 
@@ -374,7 +402,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         nargs="+",
         help="Sampling order strategy (Sequential, FileRandom, FullRandom).",
-        default=["Sequential", "FileRandom", "FullRandom"],
+        default=["Sequential"],
     )
     parser.add_argument(
         "--background-queue-maxsize",
@@ -418,6 +446,30 @@ def parse_args() -> argparse.Namespace:
         nargs="*",
         help="Additional labels to distinguish this run.",
         default=[],
+    )
+    parser.add_argument(
+        "--log-steps",
+        type=bool,
+        help="If enabled, then logs the latency per steps.",
+        default=False,
+    )
+    parser.add_argument(
+        "--log-sample-latency",
+        type=bool,
+        help="If enabled, logs per sample latency.",
+        default=True,
+    )
+    parser.add_argument(
+        "--export-otlp-metrics",
+        type=bool,
+        help="If enabled, then exports the otlp metrics.",
+        default=False,
+    )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        help="Log file path",
+        default="",
     )
 
     return parser.parse_args()

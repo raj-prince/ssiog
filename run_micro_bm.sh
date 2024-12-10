@@ -10,9 +10,9 @@ SCRIPT_PATH="training.py"  # Replace with the actual path
 ARGS=(
   "--prefix" "/usr/local/google/home/princer/gcs/Workload.0"  # Replace with your actual prefix
   "--epochs" "2"
-  "--steps" "10"
+  "--steps" "4"
   "--sample-size" "4096"
-  "--batch-size" "4"
+  "--batch-size" "16"
 #  "--background-threads" "8"
 #  "--group-size" "2"
 )
