@@ -28,14 +28,14 @@ spec:
           spec:
             containers:
             - name: benchmark
-              image: busybox
+              image:  us-west1-docker.pkg.dev/gcs-tess/ssiog-training/v0.0.1@sha256:e32ed4b9a752783e0bec284f6c92aea09cc35f65baa53cdd0ebca7ea419798e8 # busybox
               command: [ "sleep" ]
               args: [ "infinity" ]
               volumeMounts:
               - mountPath: /mnt/benchmark-output
                 name: gcsfuse-outputs
                 readOnly: false
-            serviceAccountName: princer-ssiog-ksa-e2892743606541ae
+            serviceAccountName: ssiog-runner-ksa
             volumes:
             - name: gcsfuse-outputs
               csi:

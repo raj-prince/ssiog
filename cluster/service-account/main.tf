@@ -24,8 +24,7 @@ variable "project" {
 # - Publish logs to Cloud Logging
 resource "google_service_account" "sa" {
   account_id   = "ssiog-runner"
-  display_name = "SSIOG Runner"
-  description  = "The principal used by SSIOG GKE cluster."
+  display_name = "ssiog-runner"
 }
 
 output "email" {
@@ -34,23 +33,10 @@ output "email" {
 
 # Grant the service account permissions to publish metrics, profiles, traces and
 # logs on the project
-resource "google_project_iam_member" "grant-sa-cloud-trace-permissions" {
-  project    = var.project
-  role       = "roles/cloudtrace.agent"
-  member     = "serviceAccount:${google_service_account.sa.email}"
-  depends_on = [google_service_account.sa]
-}
 
 resource "google_project_iam_member" "grant-sa-cloud-monitoring-permissions" {
   project    = var.project
   role       = "roles/monitoring.metricWriter"
-  member     = "serviceAccount:${google_service_account.sa.email}"
-  depends_on = [google_service_account.sa]
-}
-
-resource "google_project_iam_member" "grant-sa-cloud-profiler-permissions" {
-  project    = var.project
-  role       = "roles/cloudprofiler.agent"
   member     = "serviceAccount:${google_service_account.sa.email}"
   depends_on = [google_service_account.sa]
 }

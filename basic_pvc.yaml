@@ -14,8 +14,12 @@ spec:
     - name: mnt-inputs
       mountPath: /data
       readOnly: false
-  serviceAccountName: princer-ssiog-ksa-e2892743606541ae
+  serviceAccountName: ssiog-runner-ksa
   volumes:
   - name: mnt-inputs
-    persistentVolumeClaim:
-      claimName: data-bucket-pvc-48f309ac976c2a2c
+    csi:
+      driver: gcsfuse.csi.storage.gke.io
+      readOnly: false
+      volumeAttributes:
+        bucketName: "princer-ssiog-data-bkt"
+        mountOptions: "debug_fuse,implicit-dirs,metadata-cache:ttl-secs:-1,metadata-cache:stat-cache-max-size-mb:-1,metadata-cache:type-cache-max-size-mb:-1"

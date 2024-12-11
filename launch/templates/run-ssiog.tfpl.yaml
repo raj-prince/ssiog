@@ -140,5 +140,9 @@ spec:
                   volumeAttributes:
                     bucketName: ${metrics_bucket_name}
               - name: mnt-inputs
-                persistentVolumeClaim:
-                  claimName: ${pvc_name}
+                csi:
+                  driver: gcsfuse.csi.storage.gke.io
+                  readOnly: false
+                  volumeAttributes:
+                    bucketName: ${data_bucket_name}
+                    mountOptions: "debug_fuse,implicit-dirs,metadata-cache:ttl-secs:-1,metadata-cache:stat-cache-max-size-mb:-1,metadata-cache:type-cache-max-size-mb:-1"

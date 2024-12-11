@@ -60,31 +60,23 @@ resource "random_id" "uniq" {
 }
 
 locals {
-  k8s_sa_name = "princer-ssiog-ksa-${random_id.uniq.hex}"
+  k8s_sa_name = "ssiog-runner-ksa"
 
   # The full name of the k8s service account when used in GCP IAM bindings.
   k8s_sa_full = "//iam.googleapis.com/projects/${data.google_project.project.number}/locations/global/workloadIdentityPools/${data.google_project.project.project_id}.svc.id.goog/subject/ns/default/sa/${local.k8s_sa_name}"
 }
 
-resource "kubernetes_service_account" "ksa" {
-  metadata {
-    name = local.k8s_sa_name
-  }
-}
 
 resource "google_storage_bucket_iam_member" "grant-ksa-permissions-on-metrics-bucket" {
   bucket     = var.metrics_bucket_name
   role       = "roles/storage.objectUser"
   member     = "principal:${local.k8s_sa_full}"
-  depends_on = [kubernetes_service_account.ksa]
 }
 
-module "gcsfuse-data" {
-  source      = "../modules/gcsfuse-volume"
-  bucket_name = var.data_bucket_name
-  k8s_sa_full = local.k8s_sa_full
-
-  depends_on = [kubernetes_service_account.ksa]
+resource "google_storage_bucket_iam_member" "grant-ksa-permissions-on-data-bucket" {
+  bucket     = var.data_bucket_name
+  role       = "roles/storage.objectUser"
+  member     = "principal:${local.k8s_sa_full}"
 }
 
 # Find the latest SHA of the image, this forces a pull if the image changes.
@@ -114,8 +106,8 @@ resource "local_file" "training-microbenchmark" {
     image               = data.google_artifact_registry_docker_image.image.self_link
     prefixes            = local.prefixes
     k8s_sa_name         = local.k8s_sa_name,
-    pvc_name            = module.gcsfuse-data.pvc-name
     metrics_bucket_name = var.metrics_bucket_name,
+    data_bucket_name    = var.data_bucket_name,
     parallelism         = local.parallelism,
     epochs              = local.epochs,
     background_threads  = local.background_threads,
