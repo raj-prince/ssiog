@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-A microbenchmark for training workloads.
+A Synthetic Scale IO Generator for training workloads.
 """
 
 import argparse
@@ -27,15 +27,34 @@ import threading
 import time
 from typing import Iterable
 import logging
+import arguments
 
 import gcsfs
 import torch.distributed as td
-import torch.multiprocessing as mp
 import pyarrow.fs as fs
 
+import monitoring 
+
+from opentelemetry import metrics
+import metrics_logger
+
+# Import the GCP resource detector
 
 # TODO(coryan) - the sample size and batch size should be randomly sampled
+# TODO (raj-prince) - write a development guide.
+# TODO (raj-prince) - clear the logging path.
+# TODO (raj-prince) - overall testing on scale.
+# TODO (raj-prince) - See how to write unit test.
 
+# Global for recording sample latency to export.
+sample_lat = metrics.NoOpHistogram("no_op")
+
+# Initialize the global metrics logger with no-op logger.
+sample_lat_logger = metrics_logger.NoOpMetricsLogger()
+
+# Initialize the global logger with basic INFO level log.
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
+logger = logging.getLogger(__name__)
 
 class Source(object):
     def __init__(self, name: str, filesystem: fs.FileSystem, objects: Iterable[str]):
@@ -43,30 +62,63 @@ class Source(object):
         self.filesystem = filesystem
         self.objects = list(objects)
 
+def setup_metrics(args):
+    # Initialize the OpenTelemetry MeterProvider
+    meter = monitoring.initialize_monitoring_provider(exporter_type=args.exporter_type)
 
-def main():
-    """Main entry point."""
-    args = parse_args()
+    # Create a histogram metric
+    global sample_lat
+    sample_lat = meter.create_histogram(
+        name="ssiog.sample_lat",
+        description="Sample latency histogram",
+        unit="ms"
+    )
 
-    # Create a logger instance
-    logger = logging.getLogger("ssiog_benchmark")
-    logger.setLevel(logging.DEBUG)
+    logger.info("Metrics initialized.")
 
-    if args.log_file != "":
-        # Create a file handler
-        handler = logging.FileHandler(args.log_file)
-    else:
-        handler = logging.StreamHandler()
-    
-    formatter = logging.Formatter('%(created)f,%(message)s')
+def setup_logger(args):
+    global logger
+    logger = logging.getLogger(args.label)
+
+    # No propagation in the logger hierarchy.
+    logger.propagate = False
+
+    # Log level.
+    log_level = getattr(logging, args.log_level)
+    logger.setLevel(log_level)
+
+    # Log destination, where to write?
+    handler = logging.FileHandler(args.log_file) if args.log_file else logging.StreamHandler()
+
+    # Beautify.
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    print(
-        f"# Starting process {args.group_member_id}/{args.group_size}",
-        file=sys.stderr,
-        flush=True,
-    )
+    logger.info("Logger initialized.")
+
+def main():
+    # Parse arguments
+    args = arguments.parse_args()
+    logger.info(f"Running with args: {args}")
+
+    # Initialize the logger.
+    logger.info("Setting up logger.")
+    setup_logger(args)
+
+    # Initialize the OpenTelemetry MeterProvider
+    if args.export_metrics:
+        logger.info("Setting up metrics.")
+        setup_metrics(args)
+
+    # Initialize the metrics logger.
+    if args.log_metrics:
+        logger.info(f"Logging metrics to {args.metrics_file}")
+        global sample_lat_logger
+        sample_lat_logger = metrics_logger.AsyncMetricsLogger(file_name=args.metrics_file)
+
+
+    logger.info(f"Starting process: {args.group_member_id}/{args.group_size}")
     td.init_process_group(
         "gloo",
         init_method=f"tcp://{args.group_coordinator_address}:{args.group_coordinator_port}",
@@ -74,10 +126,12 @@ def main():
         world_size=args.group_size,
     )
 
+    logger.info(f"Configuring object sources.")
+    logger.info(f"{args.prefix}")
     sources = configure_object_sources(args)
 
     if args.log_steps:
-        print(
+        logger.info(
             "epoch,step,duration_ns,batch_size,start,read_order"
             + ",filesystem_name"
             + ",arg_object_count_limit"
@@ -92,30 +146,23 @@ def main():
             + ",labels"
         )
     
+    
+    if args.log_sample_latency:
+        logger.debug("epoch,object_name,offset,duration_ms")
+
+
     if args.log_sample_latency:
         logger.debug("epoch,object_name,offset,duration_ms")
 
     for epoch in range(args.epochs):
-        print(
-            f"# Configure epoch {epoch}",
-            file=sys.stderr,
-            flush=True,
-        )
-        (reader, read_order, filesystem_name, filesystem, epoch_objects) = (
-            configure_epoch(sources, args)
-        )
+        logger.info(f"Starting epoch: {epoch}.")
+        logger.info(f"Configuring epoch: {epoch}.")
+        (reader, read_order, filesystem_name, filesystem, epoch_objects) = (configure_epoch(sources, args))
 
-        print(
-            f"# Compute samples for epoch {epoch}, read_order={read_order}, epoch_objects.len={len(epoch_objects)}, fs_name={filesystem_name}",
-            file=sys.stderr,
-            flush=True,
-        )
+        logger.info(f"Compute samples for epoch {epoch}, read_order={read_order}, epoch_objects.len={len(epoch_objects)}, fs_name={filesystem_name}")
         samples = configure_samples(epoch_objects, filesystem, args)
-        print(
-            f"# Running epoch {epoch}, read_order={read_order}, epoch_objects.len={len(epoch_objects)}, fs_name={filesystem_name}, samples={len(samples)}",
-            file=sys.stderr,
-            flush=True,
-        )
+
+        logger.info(f"Running epoch {epoch}, read_order={read_order}, epoch_objects.len={len(epoch_objects)}, fs_name={filesystem_name}, samples={len(samples)}")
 
         annotations = ",".join(
             [
@@ -130,15 +177,12 @@ def main():
                 f"{args.background_threads}",
                 f"{args.group_member_id}",
                 f"{args.group_size}",
-                ";".join(args.labels),
+                f"{args.label}",
             ]
         )
         for summary in Epoch(reader, epoch_objects, filesystem, samples, args):
-            if args.log_sample_latency:
-                logger.debug(f"{epoch},{summary}")
-            
             if args.log_steps:
-                print(f"{epoch},{summary},{annotations}", flush=True)
+                logger.info(f"{epoch},{summary},{annotations}", flush=True)
         
 
 def Epoch(
@@ -177,13 +221,12 @@ def Epoch(
             running -= 1
             continue
         q.task_done()
-        if args.log_sample_latency:
-            yield f"{item[0]}, {item[1]}, {item[2]}"
         batch_samples += 1
         remaining -= args.batch_size
         if batch_samples < args.batch_size:
             continue
         duration_ns = time.monotonic_ns() - step_start
+        sample_lat.record(duration_ns / 1_000_000, {"workload": args.label})
         if args.log_steps:
             yield f"{step},{duration_ns},{batch_samples},{start}"
         td.barrier()
@@ -191,8 +234,9 @@ def Epoch(
         step_start = time.monotonic_ns()
         step += 1
         batch_samples = 0
+    
     for i in range(step, args.steps):
-        print(f"# empty step {i}", file=sys.stderr)
+        logger.info(f"Empty step {i}")
         td.barrier()
 
 
@@ -240,12 +284,15 @@ def sequential_reader(
                 start_time = time.monotonic_ns()
                 chunk = f.read(sample_size)
                 elapsed_time = time.monotonic_ns() - start_time
+                sample_lat_logger.log_metric(elapsed_time / 1000000)
+                sample_lat.record(elapsed_time / 1000000, {"reader": "sequential"})
                 if not chunk:
                     break
                 yield (name, offset, elapsed_time)
                 offset += len(chunk)
 
 
+# TODO (raj-prince): discuss what observability is required for file_random_reader pattern.
 def file_random_reader(
     object_names: Iterable[str],
     thread_id: int,
@@ -278,7 +325,11 @@ def full_random_reader(
     subset = _subset(samples, td.get_rank(), td.get_world_size())
     subset = _subset(subset, thread_id, thread_count)
     for name, offset in subset:
+        start_time = time.monotonic_ns()
         chunk = files[name].read_at(sample_size, offset)
+        elapsed_time = time.monotonic_ns() - start_time
+        sample_lat_logger.log_metric(elapsed_time / 1000000)
+        sample_lat.record(elapsed_time / 1000000, {"reader": "full_random"})
         if not chunk:
             continue
         yield (offset, chunk)
@@ -353,126 +404,6 @@ def configure_object_sources(args: argparse.Namespace) -> dict[str, Source]:
                 "local", fs.LocalFileSystem(), fsspec.filesystem("local").ls(prefix)
             )
     return sources
-
-
-def parse_args() -> argparse.Namespace:
-    """Parse the arguments and invoke the necessary steps."""
-    parser = argparse.ArgumentParser(description="Process Warp benchmark results.")
-    parser.add_argument(
-        "--prefix",
-        type=str,
-        nargs="+",
-        help=(
-            "Use the files starting with the given prefix(es)."
-            + " Use gs://... when using direct GCS access."
-        ),
-    )
-    parser.add_argument(
-        "--object-count-limit",
-        type=int,
-        help="Limit the number of objects.",
-        default=1_000_000,
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        help="Number of epochs.",
-        default=4,
-    )
-    parser.add_argument(
-        "--steps",
-        type=int,
-        help="Number of steps.",
-        default=2_000,
-    )
-    parser.add_argument(
-        "--sample-size",
-        type=int,
-        help="Sample size in bytes.",
-        default=1024,
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        help="Batch size in number of samples.",
-        default=1024,
-    )
-    parser.add_argument(
-        "--read-order",
-        type=str,
-        nargs="+",
-        help="Sampling order strategy (Sequential, FileRandom, FullRandom).",
-        default=["Sequential"],
-    )
-    parser.add_argument(
-        "--background-queue-maxsize",
-        type=int,
-        help="Maximum size for the threaded queue.",
-        default=2048,
-    )
-    parser.add_argument(
-        "--background-threads",
-        type=int,
-        help="Number of background threads.",
-        default=16,
-    )
-    parser.add_argument(
-        "--group-coordinator-address",
-        type=str,
-        help="The coordinator (rank==0) address.",
-        default="localhost",
-    )
-    parser.add_argument(
-        "--group-coordinator-port",
-        type=str,
-        help="The coordinator (rank==0) port.",
-        default="4567",
-    )
-    parser.add_argument(
-        "--group-member-id",
-        type=int,
-        help="The id within the group. Also known as the process rank.",
-        default=0,
-    )
-    parser.add_argument(
-        "--group-size",
-        type=int,
-        help="The process group size.",
-        default=1,
-    )
-    parser.add_argument(
-        "labels",
-        type=str,
-        nargs="*",
-        help="Additional labels to distinguish this run.",
-        default=[],
-    )
-    parser.add_argument(
-        "--log-steps",
-        type=bool,
-        help="If enabled, then logs the latency per steps.",
-        default=False,
-    )
-    parser.add_argument(
-        "--log-sample-latency",
-        type=bool,
-        help="If enabled, logs per sample latency.",
-        default=True,
-    )
-    parser.add_argument(
-        "--export-otlp-metrics",
-        type=bool,
-        help="If enabled, then exports the otlp metrics.",
-        default=False,
-    )
-    parser.add_argument(
-        "--log-file",
-        type=str,
-        help="Log file path",
-        default="",
-    )
-
-    return parser.parse_args()
 
 
 if __name__ == "__main__":

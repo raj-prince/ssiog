@@ -8,7 +8,8 @@ SCRIPT_PATH="training.py"  # Replace with the actual path
 
 # Set any command-line arguments you want to pass to the script
 ARGS=(
-  "--prefix" "/usr/local/google/home/princer/gcs/Workload.0"  # Replace with your actual prefix
+  "--prefix" "/usr/local/google/home/princer/gcs/Workload.0"
+  "--prefix" "test"
   "--epochs" "2"
   "--steps" "4"
   "--sample-size" "4096"
@@ -18,4 +19,4 @@ ARGS=(
 )
 
 # Invoke the Python script with the specified interpreter and arguments
-$PYTHON_INTERPRETER "$SCRIPT_PATH" "${ARGS[@]}"
+$PYTHON_INTERPRETER "$SCRIPT_PATH"
