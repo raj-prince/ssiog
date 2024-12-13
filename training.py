@@ -130,32 +130,22 @@ def main():
     logger.info(f"{args.prefix}")
     sources = configure_object_sources(args)
 
-    if args.log_steps:
-        logger.info(
-            "epoch,step,duration_ns,batch_size,start,read_order"
-            + ",filesystem_name"
-            + ",arg_object_count_limit"
-            + ",arg_epochs"
-            + ",arg_sample_size"
-            + ",arg_batch_size"
-            + ",arg_read_order"
-            + ",arg_background_queue_maxsize"
-            + ",arg_background_threads"
-            + ",arg_group_member_id"
-            + ",arg_group_size"
-            + ",labels"
-        )
-    
-    
-    if args.log_sample_latency:
-        logger.debug("epoch,object_name,offset,duration_ms")
-
-
-    if args.log_sample_latency:
-        logger.debug("epoch,object_name,offset,duration_ms")
+    logger.debug(
+        "epoch,step,duration_ns,batch_size,start,read_order"
+        + ",filesystem_name"
+        + ",arg_object_count_limit"
+        + ",arg_epochs"
+        + ",arg_sample_size"
+        + ",arg_batch_size"
+        + ",arg_read_order"
+        + ",arg_background_queue_maxsize"
+        + ",arg_background_threads"
+        + ",arg_group_member_id"
+        + ",arg_group_size"
+        + ",labels"
+    )
 
     for epoch in range(args.epochs):
-        logger.info(f"Starting epoch: {epoch}.")
         logger.info(f"Configuring epoch: {epoch}.")
         (reader, read_order, filesystem_name, filesystem, epoch_objects) = (configure_epoch(sources, args))
 
@@ -181,8 +171,7 @@ def main():
             ]
         )
         for summary in Epoch(reader, epoch_objects, filesystem, samples, args):
-            if args.log_steps:
-                logger.info(f"{epoch},{summary},{annotations}", flush=True)
+            logger.info(f"{epoch},{summary},{annotations}")
         
 
 def Epoch(
@@ -226,9 +215,7 @@ def Epoch(
         if batch_samples < args.batch_size:
             continue
         duration_ns = time.monotonic_ns() - step_start
-        sample_lat.record(duration_ns / 1_000_000, {"workload": args.label})
-        if args.log_steps:
-            yield f"{step},{duration_ns},{batch_samples},{start}"
+        yield f"{step},{duration_ns},{batch_samples},{start}"
         td.barrier()
         start = datetime.datetime.now(datetime.timezone.utc).isoformat(sep="T")
         step_start = time.monotonic_ns()
@@ -278,6 +265,7 @@ def sequential_reader(
     for name in subset:
         # Only read as many samples as have been configured for this object.
         max_offset = sample_size * len([o for n, o in samples if n == name])
+        logger.debug(f"Reading {name} sequentially from {0} to {max_offset}.")
         with filesystem.open_input_stream(name) as f:
             offset = 0
             while offset < max_offset:
@@ -325,6 +313,7 @@ def full_random_reader(
     subset = _subset(samples, td.get_rank(), td.get_world_size())
     subset = _subset(subset, thread_id, thread_count)
     for name, offset in subset:
+        logger.debug(f"Reading {name} at {offset} with size {sample_size}.")
         start_time = time.monotonic_ns()
         chunk = files[name].read_at(sample_size, offset)
         elapsed_time = time.monotonic_ns() - start_time

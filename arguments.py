@@ -25,8 +25,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Use the files starting with the given prefix(es)."
             + " Use gs://... when using direct GCS access."
-        ),
-        default="/usr/local/google/home/princer/gcs/Workload.0"
+        )
     )
     parser.add_argument(
         "--object-count-limit",
@@ -106,12 +105,6 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Label to distinguish this run.",
         default="ssiog-benchmark",
-    )
-    parser.add_argument(
-        "--log-steps",
-        type=bool,
-        help="If enabled, then logs the latency per steps.",
-        default=False,
     )
     parser.add_argument(
         "--log-metrics",
