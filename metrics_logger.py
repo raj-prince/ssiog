@@ -28,6 +28,7 @@ class AsyncMetricsLogger:
         self.file_name = file_name
         self.flush_interval = flush_interval
         self.queue = Queue()
+        self._shutdown = False
         self.writer_thread = Thread(target=self._writer_loop, daemon=True)
         self.writer_thread.start()
 
@@ -35,6 +36,7 @@ class AsyncMetricsLogger:
         with open(self.file_name, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["timestamp", "sample_lat"])
+
             while True:
                 try:
                     metrics = []
@@ -46,13 +48,38 @@ class AsyncMetricsLogger:
                 if metrics:
                     writer.writerows(metrics)
                     csvfile.flush()
+                    
+                # Get all remaining metrics from the queue if shutdown.
+                if self._shutdown:
+                    try:
+                        metrics = []
+                        while True:
+                            metrics.append(self.queue.get_nowait())
+                    except queue.Empty:
+                        pass
+                    
+                    if metrics:
+                        writer.writerows(metrics)
+                        csvfile.flush()
+                    break
 
                 time.sleep(self.flush_interval)
+                
+
 
     def log_metric(self, sample_lat):
-        """Logs a metric data point asynchronously."""
+        """
+        Logs a metric data point asynchronously.
+        """
         timestamp = time.time()
         self.queue.put([timestamp, sample_lat])
+        
+    def close(self):
+        """
+        Signals the writer thread to shut down and flushes any remaining metrics.
+        """
+        self._shutdown = True  # Set the shutdown flag
+        self.writer_thread.join()  # Wait for the thread to finish
 
 
 class NoOpMetricsLogger:
@@ -66,3 +93,6 @@ class NoOpMetricsLogger:
 
     def log_metric(self, sample_lat):
         pass  # Do nothing when log_metric is called
+    
+    def close(self):
+        pass  # Do nothing when close is called

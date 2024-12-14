@@ -34,10 +34,10 @@ class TestAsyncMetricsLogger(unittest.TestCase):
 
         # Log some metrics
         logger.log_metric(400)
-        logger.log_metric(300)
-
-        # Give some time for the writer thread to process the metrics
-        time.sleep(1)  
+        logger.log_metric(300)        
+        
+        # Close to flush the metrics in the buffer queue.
+        logger.close()
 
         # Check if the file exists and has the expected content
         self.assertTrue(os.path.exists(file_name))

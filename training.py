@@ -74,7 +74,7 @@ def setup_metrics(args):
         unit="ms"
     )
 
-    logger.info("Metrics initialized.")
+    logger.info("Metrics exporter initialized.")
 
 def setup_logger(args):
     global logger
@@ -108,7 +108,7 @@ def main():
 
     # Initialize the OpenTelemetry MeterProvider
     if args.export_metrics:
-        logger.info("Setting up metrics.")
+        logger.info("Setting up metrics exporter.")
         setup_metrics(args)
 
     # Initialize the metrics logger.
@@ -172,6 +172,11 @@ def main():
         )
         for summary in Epoch(reader, epoch_objects, filesystem, samples, args):
             logger.info(f"{epoch},{summary},{annotations}")
+
+    # Make sure log all the metrics buffered. 
+    sample_lat_logger.close()
+    
+    td.destroy_process_group()
         
 
 def Epoch(
