@@ -100,23 +100,24 @@ def setup_logger(args):
 def main():
     # Parse arguments
     args = arguments.parse_args()
-    logger.info(f"Running with args: {args}")
+    logger.debug(f"Running with args: {args}")
 
-    # Initialize the logger.
+    # Initialize the global application logger.
     logger.info("Setting up logger.")
     setup_logger(args)
 
     # Initialize the OpenTelemetry MeterProvider
     if args.export_metrics:
-        logger.info("Setting up metrics exporter.")
+        logger.info("Setting up otlp metrics exporter.")
         setup_metrics(args)
 
     # Initialize the metrics logger.
     if args.log_metrics:
-        logger.info(f"Logging metrics to {args.metrics_file}")
+        logger.info(f"Logging metrics to: {args.metrics_file}")
         global sample_lat_logger
         sample_lat_logger = metrics_logger.AsyncMetricsLogger(file_name=args.metrics_file)
-
+        
+    logger.info("Initial setup completed.\n")
 
     logger.info(f"Starting process: {args.group_member_id}/{args.group_size}")
     td.init_process_group(
@@ -125,55 +126,40 @@ def main():
         rank=args.group_member_id,
         world_size=args.group_size,
     )
-
-    logger.info(f"Configuring object sources.")
-    logger.info(f"{args.prefix}")
+    logger.info(f"Process started successfully: {args.group_member_id}/{args.group_size}\n")
+    
+    logger.info(f"Logging important workload configurations.")
+    logger.info(f"Total epochs: {args.epochs}")
+    logger.info(f"Sample size (bytes): {args.sample_size}")
+    logger.info(f"Batch size: {args.batch_size}")
+    logger.info(f"Steps: {args.steps}")
+    logger.info(f"Read order: {args.read_order[0]}")
+    logger.info(f"Background queue max size: {args.background_queue_maxsize}")
+    logger.info(f"Background threads: {args.background_threads}")
+    logger.info(f"Group member id: {args.group_member_id}")
+    logger.info(f"Group size: {args.group_size}")
+    logger.info(f"Label: {args.label}")
+    logger.info(f"Data set path: {args.prefix}.\n")
     sources = configure_object_sources(args)
-
-    logger.debug(
-        "epoch,step,duration_ns,batch_size,start,read_order"
-        + ",filesystem_name"
-        + ",arg_object_count_limit"
-        + ",arg_epochs"
-        + ",arg_sample_size"
-        + ",arg_batch_size"
-        + ",arg_read_order"
-        + ",arg_background_queue_maxsize"
-        + ",arg_background_threads"
-        + ",arg_group_member_id"
-        + ",arg_group_size"
-        + ",labels"
-    )
-
+    
     for epoch in range(args.epochs):
-        logger.info(f"Configuring epoch: {epoch}.")
+        logger.info(f"******** Starting epoch: {epoch} ********.")
+        logger.info(f"Configure epoch: {epoch}.")
         (reader, read_order, filesystem_name, filesystem, epoch_objects) = (configure_epoch(sources, args))
+        logger.info(f"Running epoch: {epoch}")
+        logger.info(f"Total objects: {len(epoch_objects)}")
 
-        logger.info(f"Compute samples for epoch {epoch}, read_order={read_order}, epoch_objects.len={len(epoch_objects)}, fs_name={filesystem_name}")
+        logger.info(f"Configuring samples.")
         samples = configure_samples(epoch_objects, filesystem, args)
+        
+        logger.info(f"Total selected samples: {len(samples)}")
 
-        logger.info(f"Running epoch {epoch}, read_order={read_order}, epoch_objects.len={len(epoch_objects)}, fs_name={filesystem_name}, samples={len(samples)}")
-
-        annotations = ",".join(
-            [
-                f"{read_order}",
-                f"{filesystem_name}",
-                f"{args.object_count_limit}",
-                f"{args.epochs}",
-                f"{args.sample_size}",
-                f"{args.batch_size}",
-                f"{';'.join(args.read_order)}",
-                f"{args.background_queue_maxsize}",
-                f"{args.background_threads}",
-                f"{args.group_member_id}",
-                f"{args.group_size}",
-                f"{args.label}",
-            ]
-        )
         for summary in Epoch(reader, epoch_objects, filesystem, samples, args):
-            logger.info(f"{epoch},{summary},{annotations}")
+            logger.info(f"Epoch: {epoch}, {summary}")
+            
+        logger.info(f"Epoch {epoch} completed.\n")
 
-    # Make sure log all the metrics buffered. 
+    # Make sure remaining metrics in the queue buffere is flushed to metrics file. 
     sample_lat_logger.close()
     
     td.destroy_process_group()
@@ -202,7 +188,6 @@ def Epoch(
                 samples,
             ),
         ).start()
-    start = datetime.datetime.now(datetime.timezone.utc).isoformat(sep="T")
     step_start = time.monotonic_ns()
     step = 0
     running = args.background_threads
@@ -220,9 +205,8 @@ def Epoch(
         if batch_samples < args.batch_size:
             continue
         duration_ns = time.monotonic_ns() - step_start
-        yield f"{step},{duration_ns},{batch_samples},{start}"
+        yield f"Step: {step}, Duration: {duration_ns/1000000}, Batch-sample: {batch_samples}"
         td.barrier()
-        start = datetime.datetime.now(datetime.timezone.utc).isoformat(sep="T")
         step_start = time.monotonic_ns()
         step += 1
         batch_samples = 0
@@ -335,14 +319,18 @@ def configure_samples(
     object_names: Iterable[str], filesystem: fs.FileSystem, args: argparse.Namespace
 ):
     samples = []
-    print(f"# Opening {len(object_names)} files", file=sys.stderr, flush=True)
+    logger.info(f"Opening {len(object_names)} files.")
     files = {n: filesystem.open_input_file(n) for n in object_names}
-    total_samples = args.batch_size * args.steps
-    print(f"# Computing {total_samples} samples", file=sys.stderr, flush=True)
+    
+    req_samples = args.batch_size * args.steps
+    logger.info(f"Collecting {req_samples} samples.")
+    
     for name, f in files.items():
         samples.extend([(name, offset) for offset in range(0, f.size(), args.sample_size)])
-    print(f"# Computing {total_samples} from {len(samples)} samples", file=sys.stderr, flush=True)
-    samples = random.choices(samples, k=total_samples)
+    logger.info(f"Total samples: {len(samples)}")
+    
+    logger.info(f"Selecting {req_samples} samples from {len(samples)} randomly.")
+    samples = random.choices(samples, k=req_samples)
 
     td.broadcast_object_list(samples, src=0)
     td.barrier()

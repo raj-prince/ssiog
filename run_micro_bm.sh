@@ -12,7 +12,7 @@ ARGS=(
   "--epochs" "2"
   "--steps" "4"
   "--sample-size" "4096"
-  "--batch-size" "16"
+  "--batch-size" "10"
   "--log-level" "DEBUG"
 #  "--background-threads" "8"
 #  "--group-size" "2"
