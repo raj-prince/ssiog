@@ -146,14 +146,13 @@ def main():
         logger.info(f"******** Starting epoch: {epoch} ********.")
         logger.info(f"Configure epoch: {epoch}.")
         (reader, read_order, filesystem_name, filesystem, epoch_objects) = (configure_epoch(sources, args))
-        logger.info(f"Running epoch: {epoch}")
-        logger.info(f"Total objects: {len(epoch_objects)}")
-
+        logger.info(f"Configured, total objects: {len(epoch_objects)}")
+        
         logger.info(f"Configuring samples.")
         samples = configure_samples(epoch_objects, filesystem, args)
-        
-        logger.info(f"Total selected samples: {len(samples)}")
+        logger.info(f"Configured, total selected samples: {len(samples)}")
 
+        logger.info(f"Running epoch: {epoch}")
         for summary in Epoch(reader, epoch_objects, filesystem, samples, args):
             logger.info(f"Epoch: {epoch}, {summary}")
             
@@ -163,6 +162,7 @@ def main():
     sample_lat_logger.close()
     
     td.destroy_process_group()
+    logger.info("Workload completed successfully!!!")
         
 
 def Epoch(
@@ -234,9 +234,7 @@ def _background(
     sample_size: int,
     samples: list,
 ):
-    for r in reader(
-        object_names, thread_id, thread_count, filesystem, sample_size, samples
-    ):
+    for r in reader(object_names, thread_id, thread_count, filesystem, sample_size, samples):
         queue.put(r)
     queue.put(Done())
 
@@ -330,6 +328,9 @@ def configure_samples(
     logger.info(f"Total samples: {len(samples)}")
     
     logger.info(f"Selecting {req_samples} samples from {len(samples)} randomly.")
+    if req_samples > len(samples):
+        logger.warning(f"Req sample ({req_samples}) > available ({len(samples)}), hence duplicated.")
+    
     samples = random.choices(samples, k=req_samples)
 
     td.broadcast_object_list(samples, src=0)
