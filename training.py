@@ -309,8 +309,10 @@ def full_random_reader(
         if not chunk:
             continue
         yield (offset, chunk)
-    del samples
+    for name, f in files.items():
+        f.close()
     del files
+    del samples
 
 
 def configure_samples(
