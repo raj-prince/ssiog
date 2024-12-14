@@ -18,7 +18,8 @@ ARGS=(
 #  "--group-size" "2"
   "--read-order" "FullRandom"
   "--export-metrics" "True"
-  "--exporter-type" "cloud"
+  # "--exporter-type" "cloud"
+  "--exporter-type" "console"
 )
 
 # Invoke the Python script with the specified interpreter and arguments

@@ -68,6 +68,7 @@ spec:
                 - /bin/bash
                 - -c
                 - |
+                  mkdir -p /mnt/benchmark-output/$${JOBSET_NAME} || true
                   args=(
                     --prefix ${prefixes}
                     --object-count-limit=${object_count_limit}
@@ -79,10 +80,16 @@ spec:
                     --group-coordinator-address=$${JOBSET_NAME}-$${REPLICATED_JOB_NAME}-0-0.$${JOBSET_NAME}
                     --group-coordinator-port=5670
                     --group-size=${parallelism}
+                    --log-metric=True
+                    --metric-file=/mnt/benchmark-output/$${JOBSET_NAME}/results-$${JOB_COMPLETION_INDEX}.csv
+                    --log-level=INFO
+                    --read-order=FullRandom
+                    --exporter-metrics=True
+                    --exporter-type=cloud
                     -- jobset-name:$${JOBSET_NAME} ${labels}
                   )
                   mkdir -p /mnt/benchmark-output/$${JOBSET_NAME} || true
-                  /app/training.py "$${args[@]}" >/mnt/benchmark-output/$${JOBSET_NAME}/results-$${JOB_COMPLETION_INDEX}.csv
+                  /app/training.py "$${args[@]}"
 
                 volumeMounts:
                 - mountPath: /mnt/benchmark-output

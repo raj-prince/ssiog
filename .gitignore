@@ -40,3 +40,4 @@ terraform.rc
 .venv/
 
 __pycache__/
+metrics.csv
