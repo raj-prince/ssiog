@@ -20,6 +20,7 @@ ARGS=(
   "--export-metrics" "True"
   # "--exporter-type" "cloud"
   "--exporter-type" "console"
+  -- jobset-name:test_run 0_testing
 )
 
 # Invoke the Python script with the specified interpreter and arguments

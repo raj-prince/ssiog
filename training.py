@@ -205,7 +205,7 @@ def Epoch(
         if batch_samples < args.batch_size:
             continue
         duration_ns = time.monotonic_ns() - step_start
-        yield f"Step: {step}, Duration: {duration_ns/1000000}, Batch-sample: {batch_samples}"
+        yield f"Step: {step}, Duration (ms): {duration_ns/1000000}, Batch-sample: {batch_samples}"
         td.barrier()
         step_start = time.monotonic_ns()
         step += 1

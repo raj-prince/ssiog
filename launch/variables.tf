@@ -54,7 +54,7 @@ variable "labels" {
 }
 
 variable "image_name" {
-  default = "v0.0.2"
+  default = "v0.1.0"
   type = string
   description = "ssiog benchmark image name"
 }

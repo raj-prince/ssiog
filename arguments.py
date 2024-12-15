@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
-        "--object-count-limit",
+            "--object-count-limit",
         type=int,
         help="Limit the number of objects.",
         default=1_000_000,

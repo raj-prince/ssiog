@@ -97,6 +97,7 @@ locals {
   object_count_limit = local.parallelism * local.background_threads
   file_size_gib      = 2
   memory             = local.file_size_gib * local.background_threads
+  label              = "test_0_1_0"
 }
 
 # Generate the data loader benchmark definition.
@@ -113,6 +114,6 @@ resource "local_file" "training-microbenchmark" {
     background_threads  = local.background_threads,
     object_count_limit  = local.object_count_limit,
     memory              = local.memory,
-    labels              = join(" ", var.labels),
+    label               = local.label,
   })
 }

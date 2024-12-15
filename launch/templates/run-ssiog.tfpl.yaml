@@ -68,7 +68,8 @@ spec:
                 - /bin/bash
                 - -c
                 - |
-                  mkdir -p /mnt/benchmark-output/$${JOBSET_NAME} || true
+                  mkdir -p /mnt/benchmark-output/${label}/$${JOBSET_NAME} || true
+                  mkdir -p /output/ || true
                   args=(
                     --prefix ${prefixes}
                     --object-count-limit=${object_count_limit}
@@ -80,17 +81,18 @@ spec:
                     --group-coordinator-address=$${JOBSET_NAME}-$${REPLICATED_JOB_NAME}-0-0.$${JOBSET_NAME}
                     --group-coordinator-port=5670
                     --group-size=${parallelism}
-                    --log-metric=True
-                    --metric-file=/mnt/benchmark-output/$${JOBSET_NAME}/results-$${JOB_COMPLETION_INDEX}.csv
+                    --log-metrics=True
+                    --metrics-file=/output/results-$${JOB_COMPLETION_INDEX}.csv
                     --log-level=INFO
                     --read-order=FullRandom
-                    --exporter-metrics=True
+                    --export-metrics=True
                     --exporter-type=cloud
-                    -- jobset-name:$${JOBSET_NAME} ${labels}
+                    --label=${label}
                   )
-                  mkdir -p /mnt/benchmark-output/$${JOBSET_NAME} || true
                   /app/training.py "$${args[@]}"
 
+                  echo "Copying the local metrics to bucket..."
+                  cp -r /output/* /mnt/benchmark-output/${label}/$${JOBSET_NAME}/
                 volumeMounts:
                 - mountPath: /mnt/benchmark-output
                   name: gcsfuse-outputs
