@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 # Set the Python interpreter to use (optional, but recommended)
 PYTHON_INTERPRETER="python3"
 
@@ -17,10 +19,8 @@ ARGS=(
  "--background-threads" "8"
 #  "--group-size" "2"
   "--read-order" "FullRandom"
-  "--export-metrics" "True"
   # "--exporter-type" "cloud"
   "--exporter-type" "console"
-  -- jobset-name:test_run 0_testing
 )
 
 # Invoke the Python script with the specified interpreter and arguments

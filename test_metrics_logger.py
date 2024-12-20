@@ -79,5 +79,3 @@ class TestNoOpMetricsLogger(unittest.TestCase):
         # Assert that the file was not created.
         self.assertFalse(os.path.exists(file_name))
 
-
-        

@@ -110,7 +110,7 @@ def parse_args() -> argparse.Namespace:
         "--log-metrics",
         type=bool,
         help="If enabled, sample latency is logged as csv.",
-        default=True,
+        default=False,
     )
     parser.add_argument(
         "--metrics-file",
@@ -122,7 +122,7 @@ def parse_args() -> argparse.Namespace:
         "--export-metrics",
         type=bool,
         help="If enabled, then exports the otlp metrics.",
-        default=True,
+        default=False,
     )
     parser.add_argument(
         "--exporter-type",
@@ -143,6 +143,12 @@ def parse_args() -> argparse.Namespace:
       default="INFO",
       choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
       help="Set the logging level",
+    )
+    parser.add_argument(
+        "--clear-pagecache-after-epoch",
+        type=bool,
+        help="Only clears page cache not dentries and inode cache",
+        default=True,
     )
 
     return parser.parse_args()

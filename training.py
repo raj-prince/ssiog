@@ -28,6 +28,7 @@ import time
 from typing import Iterable
 import logging
 import arguments
+import util
 
 import gcsfs
 import torch.distributed as td
@@ -100,11 +101,12 @@ def setup_logger(args):
 def main():
     # Parse arguments
     args = arguments.parse_args()
-    logger.debug(f"Running with args: {args}")
 
     # Initialize the global application logger.
     logger.info("Setting up logger.")
     setup_logger(args)
+    
+    logger.debug(f"Running with args: {args}")
 
     # Initialize the OpenTelemetry MeterProvider
     if args.export_metrics:
@@ -157,6 +159,11 @@ def main():
             logger.info(f"Epoch: {epoch}, {summary}")
             
         logger.info(f"Epoch {epoch} completed.\n")
+        
+        # Clear the kernel cache
+        if args.clear_pagecache_after_epoch:
+            util.clean_kernel_cache()
+
 
     # Make sure remaining metrics in the queue buffere is flushed to metrics file. 
     sample_lat_logger.close()
