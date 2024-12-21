@@ -13,31 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# write a method to clean the kernel cache, also print the ram on the system using free 
-
 import os
 import time
+import psutil
 
 def get_ram_info():
     """
     This method gets the RAM information of the system and returns it as a dictionary.
     """
+    mem_info = psutil.virtual_memory()
+    
     ram_info = {}
-    with os.popen("free -mh") as f:
-        lines = f.readlines()
-        mem_info = lines[1].split()
-        ram_info['total'] = mem_info[1]
-        ram_info['used'] = mem_info[2]
-        ram_info['free'] = mem_info[3]
+    ram_info['total'] = f"{mem_info.total / (1024 ** 2)} MB"
+    ram_info['used'] = f"{mem_info.used / (1024 ** 2)} MB"
+    ram_info['free'] = f"{mem_info.available / (1024 ** 2)} MB"
     return ram_info
 
-
-def clean_kernel_cache():
-    """
-    This method cleans the kernel cache.
-    """
-    print(f"RAM Info Before: {get_ram_info()}")
-    os.system("sudo sh -c 'echo 1 > /proc/sys/vm/drop_caches'")
-    time.sleep(1) # Wait for 1 second to allow the cache to be cleared.
-    
-    print(f"RAM Info After: {get_ram_info()}")
+def clear_kernel_cache(log):
+  """
+  Clears the Linux kernel cache (page cache, dentries, and inodes) H
+  without invoking a shell command.
+  """
+  log.info(f"Before: {get_ram_info()}")
+  try:
+      # Open the file for writing with superuser privileges
+      with open('/proc/sys/vm/drop_caches', 'w', encoding='utf-8') as f:
+          f.write('1')  # Clear only data page cache not dentries.
+      time.sleep(1)  # Wait for the caches to be cleared
+      log.info("Kernel cache cleared successfully.")
+  except (IOError, OSError) as e:
+      log.error(f"Error clearing kernel cache: {e}")
+  log.info(f"After: {get_ram_info()}")

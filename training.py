@@ -162,7 +162,7 @@ def main():
         
         # Clear the kernel cache
         if args.clear_pagecache_after_epoch:
-            util.clean_kernel_cache()
+            util.clear_kernel_cache(logger)
 
 
     # Make sure remaining metrics in the queue buffere is flushed to metrics file. 

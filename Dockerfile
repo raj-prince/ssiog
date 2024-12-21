@@ -19,3 +19,4 @@ COPY requirements.txt /app/
 RUN pip install --upgrade pip
 RUN pip install --root-user-action ignore -r requirements.txt && pip cache purge
 COPY *.py /app/
+COPY *.sh /app/
