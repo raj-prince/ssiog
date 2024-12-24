@@ -68,13 +68,31 @@ def analyze_metrics(bucket_path, timestamp_filter=True):
     except Exception as e:
         return None
 
+# Modify the below programme to take bucket_path as a string and timestamp_filter as boolean via 
+# args. 
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Analyze metrics from GCS")
+    
+    parser.add_argument(
+        "--bucket-path",
+        type=str,
+        help="GCS path to metrics files",
+        default="gs://princer-ssiog-metrics-bkt/test_0_1_0-1/*/*.csv",
+    )
+    parser.add_argument(
+        "--timestamp-filter",
+        action="store_true",
+        help="Filter by common timestamps")
+    
+    return parser.parse_args()
+
 
 # Create a main executor which provides a hardcoded path to analyze the metrics create a main method instead
 def main():
-    # bucket_path = "gs://princer-ssiog-metrics-bkt/test_0_1_0-1/*/*.csv"
-    # bucket_path = "gs://princer-ssiog-data-bkt-uc1/test_0_4_0-0/*/*.csv"
-    bucket_path = "gs://princer-ssiog-data-bkt-uc1/test_0_4_0-4/*/*.csv"
-    result_df = analyze_metrics(bucket_path, timestamp_filter=True)
+    args = parse_args()
+    result_df = analyze_metrics(args.bucket_path, args.timestamp_filter)
     if result_df is not None:
         print(result_df['sample_lat'].describe(percentiles=[0.05, 0.1, 0.25, 0.5, 0.9, 0.99, 0.999]))
 
