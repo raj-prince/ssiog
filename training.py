@@ -63,7 +63,7 @@ class Source(object):
         self.filesystem = filesystem
         self.objects = list(objects)
 
-def setup_metrics(args):
+def setup_metrics_exporter(args):
     # Initialize the OpenTelemetry MeterProvider
     meter = monitoring.initialize_monitoring_provider(exporter_type=args.exporter_type)
 
@@ -76,6 +76,12 @@ def setup_metrics(args):
     )
 
     logger.info("Metrics exporter initialized.")
+    
+def setup_metrics_logger(args):
+    global sample_lat_logger
+    sample_lat_logger = metrics_logger.AsyncMetricsLogger(file_name=args.metrics_file)
+
+    logger.info("Metrics logger initialized.")
 
 def setup_logger(args):
     global logger
@@ -97,10 +103,15 @@ def setup_logger(args):
     logger.addHandler(handler)
 
     logger.info("Logger initialized.")
+    
+def close_metrics_logger():
+    global sample_lat_logger
+    sample_lat_logger.close()
 
 def main():
     # Parse arguments
     args = arguments.parse_args()
+    print(args)
 
     # Initialize the global application logger.
     logger.info("Setting up logger.")
@@ -111,13 +122,13 @@ def main():
     # Initialize the OpenTelemetry MeterProvider
     if args.export_metrics:
         logger.info("Setting up otlp metrics exporter.")
-        setup_metrics(args)
+        setup_metrics_exporter(args)
 
     # Initialize the metrics logger.
     if args.log_metrics:
         logger.info(f"Logging metrics to: {args.metrics_file}")
-        global sample_lat_logger
-        sample_lat_logger = metrics_logger.AsyncMetricsLogger(file_name=args.metrics_file)
+        setup_metrics_logger(args)
+        
         
     logger.info("Initial setup completed.\n")
 
@@ -163,14 +174,12 @@ def main():
         # Clear the kernel cache
         if args.clear_pagecache_after_epoch:
             util.clear_kernel_cache(logger)
-
-
-    # Make sure remaining metrics in the queue buffere is flushed to metrics file. 
-    sample_lat_logger.close()
+    
+    # Make sure the flush the metrics in the buffer.
+    close_metrics_logger()
     
     td.destroy_process_group()
     logger.info("Workload completed successfully!!!")
-        
 
 def Epoch(
     reader: callable,
