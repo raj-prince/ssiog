@@ -71,10 +71,12 @@ def analyze_metrics(bucket_path, timestamp_filter=True):
 
 # Create a main executor which provides a hardcoded path to analyze the metrics create a main method instead
 def main():
-    bucket_path = "gs://princer-ssiog-metrics-bkt/test_0_1_0-1/*/*.csv"
+    # bucket_path = "gs://princer-ssiog-metrics-bkt/test_0_1_0-1/*/*.csv"
+    # bucket_path = "gs://princer-ssiog-data-bkt-uc1/test_0_4_0-0/*/*.csv"
+    bucket_path = "gs://princer-ssiog-data-bkt-uc1/test_0_4_0-4/*/*.csv"
     result_df = analyze_metrics(bucket_path, timestamp_filter=True)
     if result_df is not None:
-        print(result_df['sample_lat'].describe(percentiles=[0.1, 0.25, 0.5, 0.9, 0.99, 0.999]))
+        print(result_df['sample_lat'].describe(percentiles=[0.05, 0.1, 0.25, 0.5, 0.9, 0.99, 0.999]))
 
 if __name__ == "__main__":
     main()

@@ -340,10 +340,17 @@ def configure_samples(
     if req_samples > len(samples):
         logger.warning(f"Req sample ({req_samples}) > available ({len(samples)}), hence duplicated.")
     
+    sample_selection_stime = time.monotonic_ns()
     samples = random.choices(samples, k=req_samples)
+    sample_selection_etime = time.monotonic_ns()
+    logger.info(f"Sample selection took {(sample_selection_etime - sample_selection_stime) / 1000000} ms.")
 
+    broadcast_time_start = time.monotonic_ns()
     td.broadcast_object_list(samples, src=0)
     td.barrier()
+    broadcast_time_end = time.monotonic_ns()
+    logger.info(f"Broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
+    
     return samples
 
 
