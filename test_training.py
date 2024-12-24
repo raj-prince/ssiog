@@ -21,8 +21,6 @@ from metrics_collector import analyze_metrics
 import pandas as pd
 from io import StringIO
 import logging
-import tempfile
-import os
 from training import main
 from training import sequential_reader, full_random_reader     
 
