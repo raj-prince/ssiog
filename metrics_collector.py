@@ -15,6 +15,7 @@
 
 import pandas as pd
 import gcsfs
+import argparse
 
 def analyze_metrics(bucket_path, timestamp_filter=True):
     """
@@ -68,10 +69,6 @@ def analyze_metrics(bucket_path, timestamp_filter=True):
     except Exception as e:
         return None
 
-# Modify the below programme to take bucket_path as a string and timestamp_filter as boolean via 
-# args. 
-import argparse
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Analyze metrics from GCS")
     
@@ -98,4 +95,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
