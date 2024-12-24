@@ -23,7 +23,8 @@ from io import StringIO
 import logging
 import tempfile
 import os
-from training import main     
+from training import main
+from training import sequential_reader     
 
 class TestTraining(unittest.TestCase):
     @patch('training.arguments.parse_args')
@@ -117,6 +118,64 @@ class TestTraining(unittest.TestCase):
         mock_init_process_group.assert_called_once()
         mock_clear_kernel_cache.assert_called_once()
         mock_close_metrics_logger.assert_called_once()
+        
+    def test_sequential_reader_random_sample(self):
+        # Create a temporary file for testing
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file_path = temp_file.name
+        
+        # Create dummy file for testing
+        with open(temp_file_path, 'w') as f:
+            f.write("test")
+        
+        mock_fs = type('MockFileSystem', (object,), {'open_input_stream': lambda self, path: StringIO("test")})()
+            
+        # Mock td.get_rank() and td.get_world_size() method for this test
+        with patch('training.td.get_rank', return_value=0), patch('training.td.get_world_size', return_value=1):
+            result = list(sequential_reader(["test_file"], 0, 1, mock_fs, 2, [("test_file", 0), ("test_file", 4)]))
+        
+        # Assertions
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0][0], "test_file")
+        self.assertEqual(result[0][1], 0)
+        self.assertGreater(result[0][2], 0)
+        
+        self.assertEqual(result[1][0], "test_file")
+        self.assertEqual(result[1][1], 2)
+        self.assertGreater(result[1][2], 0)
+
+        # Clean up the temporary file
+        os.remove(temp_file_path)
+        
+    def test_sequential_reader_continuous_sample(self):
+        # Create a temporary file for testing
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file_path = temp_file.name
+        
+        # Create dummy file for testing
+        with open(temp_file_path, 'w') as f:
+            f.write("test")
+        
+        mock_fs = type('MockFileSystem', (object,), {'open_input_stream': lambda self, path: StringIO("test")})()
+            
+        # Mock td.get_rank() and td.get_world_size() method for this test
+        with patch('training.td.get_rank', return_value=0), patch('training.td.get_world_size', return_value=1):
+            result = list(sequential_reader(["test_file"], 0, 1, mock_fs, 2, [("test_file", 0), ("test_file", 2)]))
+        
+        # Assertions
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0][0], "test_file")
+        self.assertEqual(result[0][1], 0)
+        self.assertGreater(result[0][2], 0)
+        
+        self.assertEqual(result[1][0], "test_file")
+        self.assertEqual(result[1][1], 2)
+        self.assertGreater(result[1][2], 0)
+
+        # Clean up the temporary file
+        os.remove(temp_file_path)
+
+
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()
