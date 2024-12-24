@@ -182,9 +182,6 @@ class TestTraining(unittest.TestCase):
         self.assertEqual(result[1][0], 10)
         self.assertEqual(result[1][1], b"nd")
 
-
-
-
 if __name__ == '__main__':
     loader = unittest.TestLoader()
     # Discover tests in the current directory and its subdirectories
