@@ -47,14 +47,29 @@ variable "epochs" {
   default = "2"
 }
 
-variable "labels" {
-  default     = ["0_testing"]
-  type        = list(string)
-  description = "Annotations for the workload."
-}
-
 variable "image_name" {
-  default = "v0.1.0"
+  default = "v0.4.0"
   type = string
   description = "ssiog benchmark image name"
+}
+
+variable "label" {
+  type = string
+  default = "test_0-4-0-0"
+}
+
+variable "repository_id" {
+  default = "ssiog-training"
+}
+
+variable "k8s_sa_name" {
+  default = "ssiog-runner-ksa"
+}
+
+variable "prefixes" {
+  default = "/mnt/benchmark-inputs"
+}
+
+variable "background_threads" {
+  default = 8
 }

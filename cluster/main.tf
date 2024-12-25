@@ -19,7 +19,7 @@ terraform {
     # This is used to create Google Cloud Platform resources.
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.39.1"
+      version = ">= 5.44.1"
     }
     # This is used to create the k8s resources within the cluster created by
     # this configuration file.

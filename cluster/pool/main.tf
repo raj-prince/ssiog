@@ -45,6 +45,10 @@ resource "google_container_node_pool" "base" {
   node_config {
     preemptible  = false
     machine_type = var.machine_type
+    kubelet_config {
+        cpu_cfs_quota = "false"
+        pod_pids_limit = 0
+    }
     gvnic {
       enabled = true
     }

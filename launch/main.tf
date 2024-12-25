@@ -17,7 +17,7 @@ terraform {
     # This is used to create Google Cloud Platform resources.
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.39.1"
+      version = ">= 5.44.1"
     }
     # This is used to create the k8s resources within the cluster created by
     # this configuration file.
@@ -60,12 +60,17 @@ resource "random_id" "uniq" {
 }
 
 locals {
-  k8s_sa_name = "ssiog-runner-ksa"
+  k8s_sa_name = var.k8s_sa_name
 
   # The full name of the k8s service account when used in GCP IAM bindings.
   k8s_sa_full = "//iam.googleapis.com/projects/${data.google_project.project.number}/locations/global/workloadIdentityPools/${data.google_project.project.project_id}.svc.id.goog/subject/ns/default/sa/${local.k8s_sa_name}"
 }
 
+resource "kubernetes_service_account" "ksa" {
+  metadata {
+    name = local.k8s_sa_name
+  }
+}
 
 resource "google_storage_bucket_iam_member" "grant-ksa-permissions-on-metrics-bucket" {
   bucket     = var.metrics_bucket_name
@@ -82,29 +87,29 @@ resource "google_storage_bucket_iam_member" "grant-ksa-permissions-on-data-bucke
 # Find the latest SHA of the image, this forces a pull if the image changes.
 data "google_artifact_registry_docker_image" "image" {
   location      = "us-west1"
-  repository_id = "ssiog-training"
+  repository_id = var.repository_id
   image_name    = var.image_name
 }
 
 locals {
   parallelism        = var.parallelism
   epochs             = var.epochs
-  prefixes           = "/mnt/benchmark-inputs"  # gs://${var.data_bucket_name}"
-  background_threads = 8
+  prefixes           = var.prefixes  # gs://${var.data_bucket_name}"
+  background_threads = var.background_threads
   # This is large enough to make the L-SSD cache irrelevant
   # object_count_limit = 1024
   # This is good for troubleshooting, basically one file per thread
   object_count_limit = local.parallelism * local.background_threads
-  file_size_gib      = 2
-  memory             = local.file_size_gib * local.background_threads
-  label              = "test_0_1_0"
+  # file_size_gib      = 2
+  memory             = -1 # local.file_size_gib * local.background_threads
+  label              = var.label
 }
 
 # Generate the data loader benchmark definition.
 resource "local_file" "training-microbenchmark" {
-  filename = "run-ssiog.yaml"
-  content = templatefile("./templates/run-ssiog.tfpl.yaml", {
-    image               = data.google_artifact_registry_docker_image.image.self_link
+  filename = "job-set.yaml"
+  content = templatefile("./templates/job-set.tfpl.yaml", {
+    image               = data.google_artifact_registry_docker_image.image.self_link,
     prefixes            = local.prefixes
     k8s_sa_name         = local.k8s_sa_name,
     metrics_bucket_name = var.metrics_bucket_name,
