@@ -111,7 +111,6 @@ def close_metrics_logger():
 def main():
     # Parse arguments
     args = arguments.parse_args()
-    print(args)
 
     # Initialize the global application logger.
     logger.info("Setting up logger.")
