@@ -221,15 +221,16 @@ def Epoch(
             continue
         duration_ns = time.monotonic_ns() - step_start
         yield f"Step: {step}, Duration (ms): {duration_ns/1000000}, Batch-sample: {batch_samples}"
-        td.barrier()
+        if td.get_world_size() > 1:
+            td.barrier()
         step_start = time.monotonic_ns()
         step += 1
         batch_samples = 0
     
     for i in range(step, args.steps):
         logger.info(f"Empty step {i}")
-        td.barrier()
-
+        if td.get_world_size() > 1:
+            td.barrier()
 
 class Done(object):
     pass
@@ -353,19 +354,29 @@ def configure_samples(
     sample_selection_etime = time.monotonic_ns()
     logger.info(f"Sample selection took {(sample_selection_etime - sample_selection_stime) / 1000000} ms.")
 
-    broadcast_time_start = time.monotonic_ns()
-    td.broadcast_object_list(samples, src=0)
-    td.barrier()
-    broadcast_time_end = time.monotonic_ns()
-    logger.info(f"Broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
+    if td.get_world_size() > 1:
+        broadcast_time_start = time.monotonic_ns()
+        td.broadcast_object_list(samples, src=0)
+        td.barrier()
+        broadcast_time_end = time.monotonic_ns()
+        logger.info(f"Sample broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
+    else:
+        logger.info("Broadcasting is not required as world size is 1.")
     
     return samples
 
 
 def configure_epoch(sources: dict[str, Source], args: argparse.Namespace):
     prefix = [random.choice(args.prefix)]
-    td.broadcast_object_list(prefix, src=0)
-    td.barrier()
+    
+    if td.get_world_size() > 1:
+        broadcast_time_start = time.monotonic_ns()
+        td.broadcast_object_list(prefix, src=0)
+        td.barrier()
+        broadcast_time_end = time.monotonic_ns()
+        logger.info(f"Prefix broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
+    else:
+        logger.info("Broadcasting is not required as world size is 1.")
 
     p = prefix[0]
     name = sources[p].name
@@ -375,12 +386,24 @@ def configure_epoch(sources: dict[str, Source], args: argparse.Namespace):
     if len(epoch_objects) > args.object_count_limit:
         epoch_objects = epoch_objects[0 : args.object_count_limit]
 
-    td.broadcast_object_list(epoch_objects, src=0)
-    td.barrier()
-
+    if td.get_world_size() > 1:
+        broadcast_time_start = time.monotonic_ns()
+        td.broadcast_object_list(epoch_objects, src=0)
+        td.barrier()
+        broadcast_time_end = time.monotonic_ns()
+        logger.info(f"Epoch-objects broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
+    else:
+        logger.info("Broadcasting is not required as world size is 1.")
+        
     read_order = [random.choice(args.read_order)]
-    td.broadcast_object_list(read_order, src=0)
-    td.barrier()
+    if td.get_world_size() > 1:
+        broadcast_time_start = time.monotonic_ns()
+        td.broadcast_object_list(read_order, src=0)
+        td.barrier()
+        broadcast_time_end = time.monotonic_ns()
+        logger.info(f"Read-order broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
+    else:
+        logger.info("Broadcasting is not required as world size is 1.")
 
     if read_order[0] == "Sequential":
         reader = sequential_reader
