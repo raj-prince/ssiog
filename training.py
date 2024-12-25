@@ -361,7 +361,7 @@ def configure_samples(
         broadcast_time_end = time.monotonic_ns()
         logger.info(f"Sample broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
     else:
-        logger.info("Broadcasting is not required as world size is 1.")
+        logger.info("Broadcasting[samples] is not required as world size is 1.")
     
     return samples
 
@@ -376,7 +376,7 @@ def configure_epoch(sources: dict[str, Source], args: argparse.Namespace):
         broadcast_time_end = time.monotonic_ns()
         logger.info(f"Prefix broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
     else:
-        logger.info("Broadcasting is not required as world size is 1.")
+        logger.info("Broadcasting[prefix] is not required as world size is 1.")
 
     p = prefix[0]
     name = sources[p].name
@@ -393,7 +393,7 @@ def configure_epoch(sources: dict[str, Source], args: argparse.Namespace):
         broadcast_time_end = time.monotonic_ns()
         logger.info(f"Epoch-objects broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
     else:
-        logger.info("Broadcasting is not required as world size is 1.")
+        logger.info("Broadcasting[epoch-objects] is not required as world size is 1.")
         
     read_order = [random.choice(args.read_order)]
     if td.get_world_size() > 1:
@@ -403,7 +403,7 @@ def configure_epoch(sources: dict[str, Source], args: argparse.Namespace):
         broadcast_time_end = time.monotonic_ns()
         logger.info(f"Read-order broadcast took {(broadcast_time_end - broadcast_time_start) / 1000000} ms.")
     else:
-        logger.info("Broadcasting is not required as world size is 1.")
+        logger.info("Broadcasting[read-order] is not required as world size is 1.")
 
     if read_order[0] == "Sequential":
         reader = sequential_reader
