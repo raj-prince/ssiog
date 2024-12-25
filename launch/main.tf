@@ -105,10 +105,28 @@ locals {
   label              = var.label
 }
 
-# Generate the data loader benchmark definition.
-resource "local_file" "training-microbenchmark" {
+# Generate the data loader job-set (nodes talks to each other) benchmark definition.
+resource "local_file" "ssiog-training-jobset" {
   filename = "job-set.yaml"
   content = templatefile("./templates/job-set.tfpl.yaml", {
+    image               = data.google_artifact_registry_docker_image.image.self_link,
+    prefixes            = local.prefixes
+    k8s_sa_name         = local.k8s_sa_name,
+    metrics_bucket_name = var.metrics_bucket_name,
+    data_bucket_name    = var.data_bucket_name,
+    parallelism         = local.parallelism,
+    epochs              = local.epochs,
+    background_threads  = local.background_threads,
+    object_count_limit  = local.object_count_limit,
+    memory              = local.memory,
+    label               = local.label,
+  })
+}
+
+# Generate the data loader job (every job is independent) benchmark definition.
+resource "local_file" "ssiog-training-job" {
+  filename = "job.yaml"
+  content = templatefile("./templates/job.tfpl.yaml", {
     image               = data.google_artifact_registry_docker_image.image.self_link,
     prefixes            = local.prefixes
     k8s_sa_name         = local.k8s_sa_name,
