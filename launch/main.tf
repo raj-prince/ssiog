@@ -120,6 +120,8 @@ resource "local_file" "ssiog-training-jobset" {
     object_count_limit  = local.object_count_limit,
     memory              = local.memory,
     label               = local.label,
+    steps               = var.steps,
+    batch_size          = var.batch_size,
   })
 }
 
@@ -138,5 +140,7 @@ resource "local_file" "ssiog-training-job" {
     object_count_limit  = local.object_count_limit,
     memory              = local.memory,
     label               = local.label,
+    steps               = var.steps,
+    batch_size          = var.batch_size,
   })
 }

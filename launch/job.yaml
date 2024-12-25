@@ -16,8 +16,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   generateName: ssiog-job-training-
-  annotations:
-    alpha.jobset.sigs.k8s.io/exclusive-topology: cloud.google.com/gke-nodepool # 1:1 job replica to node pool assignment
 spec:
   parallelism: 2 
   completions: 2
@@ -35,6 +33,16 @@ spec:
       restartPolicy: Never
       serviceAccountName: ssiog-runner-ksa
       hostNetwork: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - ssiog-job
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: ssiog-benchmark
         image: us-west1-docker.pkg.dev/gcs-tess/ssiog-training/v0.7.0@sha256:d2f9cf2a351a2ea19a36335f6222e6915915619bef2f3323905198a9b03d559e
@@ -65,9 +73,9 @@ spec:
             --epochs=2
             --background-threads=8
             --sample-size=65536
+            --steps=50
             --batch-size=32
             --group-size=1
-            --steps=50
             --log-metrics=True
             --metrics-file=/output/results-${JOB_COMPLETION_INDEX}.csv
             --log-level=INFO

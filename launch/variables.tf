@@ -73,3 +73,11 @@ variable "prefixes" {
 variable "background_threads" {
   default = 8
 }
+
+variable "steps" {
+  default = 100
+}
+
+variable "batch_size" {
+  default = 32
+}

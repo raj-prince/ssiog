@@ -76,7 +76,8 @@ spec:
                     --epochs=${epochs}
                     --background-threads=${background_threads}
                     --sample-size=65536
-                    --batch-size=32
+                    --steps=${steps}
+                    --batch-size=${batch_size}
                     --group-member-id=$${JOB_COMPLETION_INDEX}
                     --group-coordinator-address=$${JOBSET_NAME}-$${REPLICATED_JOB_NAME}-0-0.$${JOBSET_NAME}
                     --group-coordinator-port=5670
