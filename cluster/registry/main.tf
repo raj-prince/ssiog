@@ -16,9 +16,13 @@ variable "region" {
   type = string
 }
 
+variable "repository_id" {
+  type = string
+}
+
 resource "google_artifact_registry_repository" "ssiog-registry" {
   location      = var.region
-  repository_id = "ssiog"
+  repository_id = var.repository_id
   description   = "Docker repository for ssiog benchmarks"
   format        = "DOCKER"
 }

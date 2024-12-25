@@ -23,3 +23,19 @@ variable "region" {
 variable "zone" {
   default = "us-west1-a"
 }
+
+variable "cluster_name" {
+  default = "princer-ssiog"
+}
+
+variable "machine_type" {
+  default = "n2-standard-32"
+}
+
+variable "node_count" {
+  default = 4
+}
+
+variable "repository_id" {
+  default = "ssiog"
+}

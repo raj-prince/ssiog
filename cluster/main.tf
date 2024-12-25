@@ -43,24 +43,26 @@ provider "google-beta" {
 }
 
 # We need a GCP service account that will serve as the cluster's SA.
-module "sa" {
-  source  = "./service-account"
-  project = var.project
-}
+# module "sa" {
+#   source  = "./service-account"
+#   project = var.project
+# }
 
 # Create the GKE cluster.
 module "gke" {
   source     = "./gke"
   project    = var.project
   region     = var.region
-  depends_on = [module.sa]
+  zone = var.zone
+  cluster_name = var.cluster_name
+  # depends_on = [module.sa]
 }
 
 # Retrieve an access token as the Terraform runner
 data "google_client_config" "provider" {}
 data "google_container_cluster" "cluster" {
   name       = module.gke.cluster_name
-  location   = var.region
+  location   = var.zone
   depends_on = [module.gke]
 }
 
@@ -80,8 +82,10 @@ provider "kubernetes" {
 module "pool" {
   source                = "./pool"
   cluster               = module.gke.cluster_name
+  machine_type = var.machine_type
+  node_count = var.node_count
   region                = var.region
-  service_account_email = module.sa.email
+  # service_account_email = module.sa.email
   depends_on            = [module.gke]
   zone                  = var.zone
 }
@@ -90,4 +94,5 @@ module "pool" {
 module "registry" {
   source = "./registry"
   region = var.region
+  repository_id = var.repository_id
 }

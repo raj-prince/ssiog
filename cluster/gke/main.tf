@@ -20,10 +20,18 @@ variable "region" {
   type = string
 }
 
+variable "zone" {
+  type = string
+}
+
+variable "cluster_name" {
+  type = string
+}
+
 resource "google_container_cluster" "princer-ssiog" {
   provider = google-beta # For secret_manager_config
-  name     = "princer-ssiog"
-  location = var.region
+  name     = var.cluster_name
+  location = var.zone # Zonal cluster
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
   # node pool and immediately delete it.

@@ -26,16 +26,25 @@ variable "zone" {
 
 variable "service_account_email" {
   type = string
+  default = "default"
+}
+
+variable "machine_type" {
+  type = string
+}
+
+variable "node_count" {
+  type = number
 }
 
 resource "google_container_node_pool" "base" {
   name       = "base"
-  location   = var.region
+  location   = var.zone # zonal node pool
   cluster    = var.cluster
-  node_count = 4
+  node_count = var.node_count
   node_config {
     preemptible  = false
-    machine_type = "n2-standard-32"
+    machine_type = var.machine_type
     gvnic {
       enabled = true
     }
