@@ -338,7 +338,7 @@ def configure_samples(
     logger.info(f"Opening {len(object_names)} files.")
     files = {n: filesystem.open_input_file(n) for n in object_names}
     
-    req_samples = args.batch_size * args.steps
+    req_samples = args.batch_size * args.steps * args.group_size
     logger.info(f"Collecting {req_samples} samples.")
     
     for name, f in files.items():
