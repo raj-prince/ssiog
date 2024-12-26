@@ -45,7 +45,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
       - name: ssiog-benchmark
-        image: us-west1-docker.pkg.dev/gcs-tess/ssiog-training/v0.7.0@sha256:d2f9cf2a351a2ea19a36335f6222e6915915619bef2f3323905198a9b03d559e
+        image: us-west1-docker.pkg.dev/gcs-tess/ssiog-training/v0.8.0@sha256:48e36ae4f0920d91951b8fef39e55ddc796a11ed7acfc9b88efd2e8555b9b718
         env:
         - name: POD_NAME
           valueFrom:
@@ -65,7 +65,7 @@ spec:
         - /bin/bash
         - -c
         - |
-          mkdir -p /mnt/benchmark-output/test_0-7-0-0/${JOB_NAME} || true
+          mkdir -p /mnt/benchmark-output/test_0-8-0-0/${JOB_NAME} || true
           mkdir -p /output/ || true
           args=(
             --prefix /mnt/benchmark-inputs
@@ -82,12 +82,12 @@ spec:
             --read-order=FullRandom
             --export-metrics=True
             --exporter-type=cloud
-            --label=test_0-7-0-0
+            --label=test_0-8-0-0
           )
           /app/training.py "${args[@]}"
 
           echo "Copying the local metrics to bucket..."
-          cp -r /output/* /mnt/benchmark-output/test_0-7-0-0/${JOB_NAME}/
+          cp -r /output/* /mnt/benchmark-output/test_0-8-0-0/${JOB_NAME}/
         volumeMounts:
         - mountPath: /mnt/benchmark-output
           name: gcsfuse-outputs
