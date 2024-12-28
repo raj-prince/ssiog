@@ -16,6 +16,36 @@
 import pandas as pd
 import gcsfs
 import argparse
+import logging
+import os
+import psutil
+from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
+
+# Initialize the global logger with basic INFO level log.
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
+logger = logging.getLogger(__name__)
+
+def convert_bytes_to_mib(bytes):
+    return bytes / (1024 ** 2)
+
+def get_system_memory():
+    mem = psutil.virtual_memory()
+    return convert_bytes_to_mib(mem.total), convert_bytes_to_mib(mem.used), convert_bytes_to_mib(mem.free)
+
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    return convert_bytes_to_mib(mem_info.rss)
+
+def process_csv(file, fs):
+    with fs.open(file, 'r') as f:
+        df = pd.read_csv(f)
+        if not df.empty:
+            return df['timestamp'][0], df['timestamp'][len(df['timestamp']) - 1], df
+        else:
+            return None, None, df
+
 
 def analyze_metrics(bucket_path, timestamp_filter=True):
     """
@@ -37,18 +67,27 @@ def analyze_metrics(bucket_path, timestamp_filter=True):
         if not csv_files:
             return None
         
+        logger.info(f"Total number of CSV files: {len(csv_files)}")
+        systemMemory = get_system_memory()
+        logger.info(f"Total system memory: {systemMemory[0]} MiB" )
+        logger.info(f"Used system memory: {systemMemory[1]} MiB")
+        logger.info(f"Free system memory: {systemMemory[2]} MiB")
+        logger.info(f"Memory usage by process before loading CSV files: {get_memory_usage()} MiB")    
+
+        with ThreadPoolExecutor() as pool:
+            results = list(tqdm(pool.map(lambda file: process_csv(file, fs), csv_files), total=len(csv_files)))
+            
         start_timestamps = []
         end_timestamps = []        
         all_data = []
-        for file in csv_files:
-            with fs.open(file, 'r') as f:
-                df = pd.read_csv(f)
-                if not df.empty:
-                    start_timestamps.append(df['timestamp'].iloc[0])
-                    end_timestamps.append(df['timestamp'].iloc[-1])
-                all_data.append(df)
-
-        combined_df = pd.concat(all_data)
+        for start, end, df in results:
+            if start is not None and end is not None:
+                start_timestamps.append(start)
+                end_timestamps.append(end)
+            all_data.append(df)
+        
+        combined_df = pd.concat(all_data)    
+        logger.info(f"Memory usage by process after loading CSV files: {get_memory_usage()} MiB")    
         
         if not start_timestamps or not end_timestamps:
             return None
@@ -67,6 +106,7 @@ def analyze_metrics(bucket_path, timestamp_filter=True):
         return combined_df
     
     except Exception as e:
+        logger.error(f"Error in analyzing metrics: {e}")
         return None
 
 def parse_args():
@@ -76,7 +116,7 @@ def parse_args():
         "--bucket-path",
         type=str,
         help="GCS path to metrics files",
-        default="gs://princer-ssiog-metrics-bkt/test_0_1_0-1/*/*.csv",
+        default="gs://princer-ssiog-data-bkt-uc1/test_0_7_0-0/ssiog-training-n69qj/*.csv"
     )
     parser.add_argument(
         "--timestamp-filter",

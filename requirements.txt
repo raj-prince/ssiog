@@ -7,3 +7,5 @@ opentelemetry-resourcedetector-gcp==1.7.0a0
 opentelemetry-propagator-gcp==1.7.0
 psutil==6.1.1
 pandas==2.2.3
+tqdm==4.67.1
+pytest==8.3.4
