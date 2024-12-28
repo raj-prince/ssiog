@@ -116,8 +116,6 @@ def parse_args():
         "--bucket-path",
         type=str,
         help="GCS path to metrics files",
-        # default="gs://princer-ssiog-metrics-bkt/test_0_1_0-1/*/*.csv",
-        # default="gs://princer-ssiog-data-bkt-uc1/job_grpc_512/lg-air-12g-1mib-510-mth5v/*.csv"
         default="gs://princer-ssiog-data-bkt-uc1/test_0_7_0-0/ssiog-training-n69qj/*.csv"
     )
     parser.add_argument(
