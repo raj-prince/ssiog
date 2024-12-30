@@ -80,6 +80,46 @@ class TestAnalyzeMetrics(unittest.TestCase):
         # Call the function to analyze metrics
         result_df = analyze_metrics('gs://test-bucket/*.csv')
         
+    @patch('fsspec.filesystem')
+    def test_analyze_metrics_local_success(self, mock_fsspec):
+        # Mock the local filesystem to return sample data
+        mock_fs = mock_fsspec.return_value
+        mock_fs.glob.return_value = ['file1.csv', 'file2.csv']
+        mock_fs.open.side_effect = [StringIO("timestamp,sample_lat\n1678886400,10\n1678886460,20"), StringIO("timestamp,sample_lat\n1678886520,15\n1678886580,25")]
+
+        # Call the function to analyze metrics
+        result_df = analyze_metrics('/tmp/*.csv', False)
+
+        # Assert that the result is a pandas DataFrame and has the expected data
+        self.assertIsInstance(result_df, pd.DataFrame)
+        self.assertEqual(len(result_df), 4)
+        self.assertTrue('sample_lat' in result_df.columns)
+
+    @patch('fsspec.filesystem')
+    def test_analyze_metrics_local_empty_file(self, mock_fsspec):
+        # Mock the local filesystem to return an empty file
+        mock_fs = mock_fsspec.return_value
+        mock_fs.glob.return_value = ['empty.csv']
+        mock_fs.open.return_value = StringIO("")
+
+        # Call the function to analyze metrics
+        result_df = analyze_metrics('/tmp/*.csv')
+
+        # Assert that the result is None
+        self.assertIsNone(result_df)
+
+    @patch('fsspec.filesystem')
+    def test_analyze_metrics_local_no_files(self, mock_fsspec):
+        # Mock the local filesystem to return no files
+        mock_fs = mock_fsspec.return_value
+        mock_fs.glob.return_value = []
+
+        # Call the function to analyze metrics
+        result_df = analyze_metrics('/tmp/*.csv')
+
+        # Assert that the result is None
+        self.assertIsNone(result_df)
+        
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()

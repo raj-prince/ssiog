@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pandas as pd
+import fsspec
 import gcsfs
 import argparse
 import logging
@@ -46,24 +47,27 @@ def process_csv(file, fs):
         else:
             return None, None, df
 
+            
 
-def analyze_metrics(bucket_path, timestamp_filter=True):
+def analyze_metrics(path, timestamp_filter=True):
     """
-    Analyzes metrics from CSV files in a Google Cloud Storage bucket.
+    Analyzes metrics from CSV files in a Google Cloud Storage bucket or local filesystem.
 
     Args:
-        bucket_path: The path to the bucket containing CSV files.  Should be a GCS path, e.g., "gs://my-bucket/path/to/files/*.csv"
+        path (str): The path to the bucket or local containing CSV files, e.g., "gs://my-bucket/path/to/files/*.csv", "/local/*.csv"
 
     Returns:
         A pandas DataFrame containing the combined latency data, or None if no files are found. Also, timebased filtering which selects
         common entry among all the CSV files if timestamp_filter is set to True.
     """
     try:
-        # Use gcsfs to access the bucket.  Install with: pip install gcsfs
-        fs = gcsfs.GCSFileSystem()
+        if path.startswith("gs://"): # if gcs path
+            fs = gcsfs.GCSFileSystem()
+        else: # otherwise assume it a local path
+            fs = fsspec.filesystem("local")
         
-        # Find all CSV files in the bucket path using glob-like pattern matching.
-        csv_files = list(fs.glob(bucket_path))
+        # Find all CSV files in the path using glob-like pattern matching.
+        csv_files = list(fs.glob(path))
         if not csv_files:
             return None
         
@@ -113,9 +117,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Analyze metrics from GCS")
     
     parser.add_argument(
-        "--bucket-path",
+        "--metrics-path",
         type=str,
-        help="GCS path to metrics files",
+        help="GCS or local path to metrics files",
         default="gs://princer-ssiog-data-bkt-uc1/test_0_7_0-0/ssiog-training-n69qj/*.csv"
     )
     parser.add_argument(
@@ -129,7 +133,7 @@ def parse_args():
 # Create a main executor which provides a hardcoded path to analyze the metrics create a main method instead
 def main():
     args = parse_args()
-    result_df = analyze_metrics(args.bucket_path, args.timestamp_filter)
+    result_df = analyze_metrics(args.metrics_path, args.timestamp_filter)
     if result_df is not None:
         print(result_df['sample_lat'].describe(percentiles=[0.05, 0.1, 0.25, 0.5, 0.9, 0.99, 0.999]))
 
