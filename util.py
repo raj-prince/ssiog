@@ -47,8 +47,7 @@ def clear_kernel_cache(log):
       log.info(f"Falling back to clearing using shell command, for password less sudo access.")
       clear_kernel_cache_bash(log)
   log.info(f"After: {get_ram_info()}")
-  
-  
+
 def clear_kernel_cache_bash(log):
     try:
         # Attempt to clear the cache with sudo, but suppress password prompt
