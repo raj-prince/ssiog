@@ -16,6 +16,7 @@
 import os
 import time
 import psutil
+import subprocess
 
 def get_ram_info():
     """
@@ -43,4 +44,16 @@ def clear_kernel_cache(log):
       log.info("Kernel cache cleared successfully.")
   except (IOError, OSError) as e:
       log.error(f"Error clearing kernel cache: {e}")
+      log.info(f"Falling back to clearing using shell command, for password less sudo access.")
+      clear_kernel_cache_bash(log)
   log.info(f"After: {get_ram_info()}")
+
+def clear_kernel_cache_bash(log):
+    try:
+        # Attempt to clear the cache with sudo, but suppress password prompt
+         subprocess.run(['sudo', 'sh', '-c', 'echo 1 > /proc/sys/vm/drop_caches'], check=True, stdout=subprocess.DEVNULL, 
+stderr=subprocess.DEVNULL)
+         time.sleep(1)  # Wait for the caches to be cleared
+    except subprocess.CalledProcessError as e:
+         # If sudo fails (likely due to no passwordless access), log the error and exit
+         log.warn(f"Failed to clear kernel cache: {e}")
