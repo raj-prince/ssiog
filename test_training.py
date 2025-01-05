@@ -22,7 +22,84 @@ import pandas as pd
 from io import StringIO
 import logging
 from training import main
-from training import sequential_reader, full_random_reader     
+from training import sequential_reader, full_random_reader
+
+import unittest
+import os
+import shutil
+from unittest.mock import patch
+import argparse
+from training import main
+import tempfile
+
+class TestEndToEnd(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+        # Create dummy files for testing
+        with open(os.path.join(self.test_dir, "file1.txt"), "w") as f:
+            f.write("test data")
+        with open(os.path.join(self.test_dir, "file2.txt"), "w") as f:
+            f.write("more test data")
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+    @patch('training.arguments.parse_args')
+    @patch('training.full_random_reader')
+    def test_e2e_main_error_during_read(self, mock_full_random_reader, mock_parse_args):
+        mock_args = argparse.Namespace(
+            prefix=[self.test_dir],
+            epochs=1,
+            steps=1,
+            sample_size=1000,
+            batch_size=10,
+            read_order=["FullRandom"],
+            background_queue_maxsize=2048,            
+            background_threads=16,
+            group_coordinator_address="localhost",
+            group_coordinator_port="4567",
+            group_member_id=0,
+            group_size=1,
+            log_level="DEBUG",
+            label="test-label",
+            log_metrics=False,
+            log_file="",
+            export_metrics=False,
+            metrics_file="metrics.csv",
+            clear_pagecache_after_epoch=False,
+            object_count_limit=100,
+        )
+        mock_parse_args.return_value = mock_args
+        mock_full_random_reader.side_effect = Exception("Read failed")
+        
+        main()
+        
+    @patch('training.arguments.parse_args')
+    def test_e2e_main_success(self, mock_parse_args):
+        mock_args = argparse.Namespace(
+            prefix=[self.test_dir],
+            epochs=1,
+            steps=1,
+            sample_size=1000,
+            batch_size=10,
+            read_order=["FullRandom"],
+            background_queue_maxsize=2048,            
+            background_threads=16,
+            group_coordinator_address="localhost",
+            group_coordinator_port="4567",
+            group_member_id=0,
+            group_size=1,
+            log_level="DEBUG",
+            label="test-label",
+            log_metrics=False,
+            log_file="",
+            export_metrics=False,
+            metrics_file="metrics.csv",
+            clear_pagecache_after_epoch=False,
+            object_count_limit=100,
+        )
+        mock_parse_args.return_value = mock_args
+        main()
 
 class TestTraining(unittest.TestCase):
     @patch('training.arguments.parse_args')
