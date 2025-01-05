@@ -179,6 +179,55 @@ class TestTraining(unittest.TestCase):
         
         self.assertEqual(result[1][0], 10)
         self.assertEqual(result[1][1], b"nd")
+        
+    @patch('training.td.get_rank', return_value=0)
+    @patch('training.td.get_world_size', return_value=1)
+    def test_full_random_reader_exception(self, mock_get_world_size, mock_get_rank):
+        class MockFileSystem:
+            def open_input_file(self, path):
+                class MockFile:
+                    def readall(self):
+                        return b"testing_random_reader"
+                    
+                    def read_at(self, size, offset):
+                        if offset < 10:
+                            return b"testing_random_reader"[offset:offset + size]
+
+                    def close(self):
+                        pass
+
+                return MockFile()
+
+        mock_fs = MockFileSystem()
+        with self.assertRaises(ValueError) as context:
+            list(full_random_reader(["test_file"], 0, 1, mock_fs, 2, [("test_file", 0), ("test_file", 10)]))
+            
+        self.assertEqual(str(context.exception), "chunk is nil.")
+    
+    @patch('training.td.get_rank', return_value=0)
+    @patch('training.td.get_world_size', return_value=1)
+    def test_full_random_reader_exception_during_read(self, mock_get_world_size, mock_get_rank):
+        class MockFileSystem:
+            def open_input_file(self, path):
+                class MockFile:
+                    def readall(self):
+                        return b"testing_random_reader"
+                    
+                    def read_at(self, size, offset):
+                        if offset < 10:
+                            return b"testing_random_reader"[offset:offset + size]
+                        else:
+                            raise ValueError("Read failed")
+
+                    def close(self):
+                        pass
+
+                return MockFile()
+
+        mock_fs = MockFileSystem()
+        with self.assertRaises(Exception) as context:
+            list(full_random_reader(["test_file"], 0, 1, mock_fs, 2, [("test_file", 0), ("test_file", 10)]))
+        self.assertEqual(str(context.exception), "Read failed")
 
 if __name__ == '__main__':
     loader = unittest.TestLoader()

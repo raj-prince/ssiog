@@ -208,6 +208,7 @@ def Epoch(
     running = args.background_threads
     batch_samples = 0
     remaining = len(samples)
+    logger.debug("Starting the steps loop.")
     while running != 0 and step < args.steps:
         item = q.get()
         if isinstance(item, Done):
@@ -235,10 +236,8 @@ def Epoch(
 class Done(object):
     pass
 
-
 def _subset(samples: Iterable, index: int, count: int) -> list[str]:
     return [o for i, o in enumerate(samples) if i % count == index]
-
 
 def _background(
     reader: callable,
@@ -250,10 +249,15 @@ def _background(
     sample_size: int,
     samples: list,
 ):
-    for r in reader(object_names, thread_id, thread_count, filesystem, sample_size, samples):
-        queue.put(r)
-    queue.put(Done())
-
+    logger.debug(f"Background thread {thread_id} started.")
+    try:
+        for r in reader(object_names, thread_id, thread_count, filesystem, sample_size, samples):
+            queue.put(r)
+    except Exception as e:
+        logger.error(f"Background thread {thread_id} failed: {e}")
+    finally:
+        queue.put(Done())
+        logger.debug(f"Background thread {thread_id} completed.")
 
 def sequential_reader(
     object_names: Iterable[str],
@@ -303,7 +307,6 @@ def file_random_reader(
         del offsets
         del data
 
-
 def full_random_reader(
     object_names: Iterable[str],
     thread_id: int,
@@ -318,12 +321,18 @@ def full_random_reader(
     for name, offset in subset:
         logger.debug(f"Reading {name} at {offset} with size {sample_size}.")
         start_time = time.monotonic_ns()
-        chunk = files[name].read_at(sample_size, offset)
+        try:
+            chunk = files[name].read_at(sample_size, offset)
+        except Exception as e:
+            logger.error(f"error in reading {name} at {offset} with size {sample_size}: {e}")
+            raise
         elapsed_time = time.monotonic_ns() - start_time
         sample_lat_logger.log_metric(elapsed_time / 1000000)
         sample_lat.record(elapsed_time / 1000000, {"reader": "full_random"})
+        logger.debug(f"Complete reading {name} at {offset} with size {sample_size} in {elapsed_time / 1000000} ms.")
         if not chunk:
-            continue
+            logger.error(f"Chunk is nil.")
+            raise ValueError("chunk is nil.") 
         yield (offset, chunk)
     for name, f in files.items():
         f.close()
