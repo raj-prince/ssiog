@@ -23,6 +23,7 @@ import datetime
 import queue
 import random
 import sys
+import traceback
 import threading
 import time
 from typing import Iterable
@@ -108,7 +109,7 @@ def close_metrics_logger():
     global sample_lat_logger
     sample_lat_logger.close()
 
-def main():
+def training():
     # Parse arguments
     args = arguments.parse_args()
 
@@ -173,12 +174,6 @@ def main():
         # Clear the kernel cache
         if args.clear_pagecache_after_epoch:
             util.clear_kernel_cache(logger)
-    
-    # Make sure the flush the metrics in the buffer.
-    close_metrics_logger()
-    
-    td.destroy_process_group()
-    logger.info("Workload completed successfully!!!")
 
 def Epoch(
     reader: callable,
@@ -211,10 +206,13 @@ def Epoch(
     logger.debug("Starting the steps loop.")
     while running != 0 and step < args.steps:
         item = q.get()
+        if isinstance(item, Failed):
+            raise Exception("One of the background threads failed.")
         if isinstance(item, Done):
             q.task_done()
             running -= 1
             continue
+        yield item
         q.task_done()
         batch_samples += 1
         remaining -= args.batch_size
@@ -236,6 +234,9 @@ def Epoch(
 class Done(object):
     pass
 
+class Failed(object):
+    pass
+
 def _subset(samples: Iterable, index: int, count: int) -> list[str]:
     return [o for i, o in enumerate(samples) if i % count == index]
 
@@ -251,13 +252,17 @@ def _background(
 ):
     logger.debug(f"Background thread {thread_id} started.")
     try:
+        success = True
         for r in reader(object_names, thread_id, thread_count, filesystem, sample_size, samples):
             queue.put(r)
     except Exception as e:
+        success = False
+        queue.put(Failed())
         logger.error(f"Background thread {thread_id} failed: {e}")
     finally:
         queue.put(Done())
-        logger.debug(f"Background thread {thread_id} completed.")
+        if success:
+            logger.debug(f"Background thread {thread_id} completed.")
 
 def sequential_reader(
     object_names: Iterable[str],
@@ -444,6 +449,24 @@ def configure_object_sources(args: argparse.Namespace) -> dict[str, Source]:
             )
     return sources
 
+def main():
+    print("testing...")
+    logger.info("testing....logger")
+    try:
+        success = True
+        training()
+    except Exception as e:
+        success = False
+        logger.error(f"Workload failed with error: {e}")
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        # Make sure the flush the metrics in the buffer.
+        close_metrics_logger()
+        td.destroy_process_group()
+        if success:
+            logger.info("Workload completed successfully.")
+            sys.exit(0)
 
 if __name__ == "__main__":
     main()
