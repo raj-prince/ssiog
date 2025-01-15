@@ -212,7 +212,6 @@ def Epoch(
             q.task_done()
             running -= 1
             continue
-        yield item
         q.task_done()
         batch_samples += 1
         remaining -= args.batch_size
@@ -450,7 +449,6 @@ def configure_object_sources(args: argparse.Namespace) -> dict[str, Source]:
     return sources
 
 def main():
-    print("testing...")
     logger.info("testing....logger")
     try:
         success = True
